@@ -675,7 +675,7 @@ class CodingPanel {
 
 			// Build SOQL query with proper escaping
 			const namesForQuery = fullNames.map(name => `'${name.replace(/'/g, "\\'")}'`).join(',');
-			const soqlQuery = `SELECT Name, LastModifiedBy.Name, LastModifiedDate FROM ${objectName} WHERE Name IN (${namesForQuery})`;
+			const soqlQuery = `SELECT Name, LastModifiedById, LastModifiedBy.Name, LastModifiedDate FROM ${objectName} WHERE Name IN (${namesForQuery})`;
 			
 			console.log('Executing SOQL query: ' + soqlQuery);
 
@@ -720,6 +720,7 @@ class CodingPanel {
 					const detailsMap: {[key: string]: any} = {};
 					queryData.result.records.forEach((record: any) => {
 						detailsMap[record.Name] = {
+							lastModifiedById: record.LastModifiedById,
 							lastModifiedByName: record.LastModifiedBy ? record.LastModifiedBy.Name : 'Unknown',
 							lastModifiedDate: record.LastModifiedDate
 						};
@@ -728,14 +729,14 @@ class CodingPanel {
 					// Enrich the results with the additional details
 					let enrichedResults;
 					if (!Array.isArray(results)) {
-						const details = detailsMap[results.fullName] || { lastModifiedByName: 'Unknown', lastModifiedDate: null };
+						const details = detailsMap[results.fullName] || { lastModifiedById: null, lastModifiedByName: 'Unknown', lastModifiedDate: null };
 						enrichedResults = {
 							...results,
 							...details
 						};
 					} else {
 						enrichedResults = results.map((r: any) => {
-							const details = detailsMap[r.fullName] || { lastModifiedByName: 'Unknown', lastModifiedDate: null };
+							const details = detailsMap[r.fullName] || { lastModifiedById: null, lastModifiedByName: 'Unknown', lastModifiedDate: null };
 							return {
 								...r,
 								...details
@@ -1130,76 +1131,289 @@ class CodingPanel {
 	private fetchMyComponentsWithQuery(userId: string) {
 		console.log('Fetching components for user ID:', userId);
 		
-		const metadataTypes = ['ApexClass', 'ApexTrigger', 'ApexPage', 'ApexComponent', 
-								'LightningComponentBundle', 'Flow', 'ValidationRule'];
+		// All metadata types to retrieve - use same approach as All Components
+		const metadataTypes = [
+			'ApexClass', 
+			'ApexTrigger', 
+			'ApexPage', 
+			'ApexComponent',
+			'LightningComponentBundle',
+			'Flow',
+			'CustomObject',
+			'Layout',
+			'CustomTab',
+			'CustomApplication',
+			'Queue',
+			'Group',
+			'EmailTemplate',
+			'StaticResource',
+			'CustomLabel',
+			'ExternalDataSource',
+			'NamedCredential',
+			'RemoteSiteSetting',
+			'ContentAsset',
+			'AuraDefinitionBundle',
+			'CustomMetadata',
+			'Report',
+			'Dashboard',
+			'PermissionSet',
+			'Profile'
+		];
 		
 		const allComponents: any[] = [];
 		let completedQueries = 0;
+		const totalQueries = metadataTypes.length + 3; // +3 for CustomField, ValidationRule, WorkflowRule
 
+		const sendResponse = () => {
+			console.log(`Total components found: ${allComponents.length}`);
+			this._panel.webview.postMessage({ 
+				command: 'myComponentsResponse', 
+				components: allComponents 
+			});
+			
+			if (allComponents.length === 0) {
+				vscode.window.showInformationMessage('No components found that were last modified by you.');
+			}
+		};
+
+		// Process each metadata type using sf org list metadata (like All Components)
 		metadataTypes.forEach(metadataType => {
-			// Query using LastModifiedById to filter by current user
-			const soqlQuery = `SELECT Id, Name, LastModifiedById, LastModifiedBy.Name, LastModifiedDate FROM ${metadataType} WHERE LastModifiedById = '${userId}' ORDER BY LastModifiedDate DESC`;
-			const sfdxCmd = `sf data query --query "${soqlQuery.replace(/"/g, '\\"')}" --json`;
+			const listCmd = `sf org list metadata --api-version ${this.VERSION_NUM} --json -m ${metadataType}`;
+			console.log(`Listing ${metadataType} metadata`);
 			
-			console.log(`Querying ${metadataType} with userId: ${userId}`);
-			
-			let foo: child.ChildProcess = child.exec(sfdxCmd, {
+			let listProc: child.ChildProcess = child.exec(listCmd, {
 				maxBuffer: 1024 * 1024 * 8,
 				cwd: vscode.workspace.workspaceFolders[0].uri.fsPath
 			});
 
-			let bufferOutData = '';
+			let listBuffer = '';
 
-			foo.stdout.on("data", (dataArg: any) => {
-				bufferOutData += dataArg;
+			listProc.stdout.on("data", (dataArg: any) => {
+				listBuffer += dataArg;
 			});
 
-			foo.stderr.on("data", (data: any) => {
-				console.log(`stderr for ${metadataType}: ` + data);
+			listProc.stderr.on("data", (data: any) => {
+				console.log(`stderr for ${metadataType} list: ` + data);
 			});
 
-			foo.on('exit', (code) => {
-				completedQueries++;
-
-				if (code === 0 && bufferOutData) {
+			listProc.on('exit', (code) => {
+				if (code === 0 && listBuffer) {
 					try {
-						const queryData = JSON.parse(bufferOutData);
-						console.log(`${metadataType} query result:`, queryData);
-						
-						if (queryData.status === 0 && queryData.result && queryData.result.records) {
-							queryData.result.records.forEach((record: any) => {
-								const lastModifiedByName = record.LastModifiedBy ? record.LastModifiedBy.Name : 'Unknown';
+						const listData = JSON.parse(listBuffer);
+						if (listData.status === 0 && listData.result) {
+							// Enrich with details and filter by user
+							this.enrichMetadataWithDetails(listData.result, metadataType).then(enrichedResults => {
+								// Filter by userId - only keep components modified by the current user
+								const filteredResults = Array.isArray(enrichedResults) 
+									? enrichedResults.filter((r: any) => r.lastModifiedById === userId)
+									: (enrichedResults.lastModifiedById === userId ? [enrichedResults] : []);
 								
-								allComponents.push({
-									id: `${metadataType}.${record.Name}`,
-									metadataType: metadataType,
-									componentName: record.Name,
-									lastModifiedByName: lastModifiedByName,
-									lastModifiedDate: record.LastModifiedDate
+								// Add to components with proper structure
+								filteredResults.forEach((result: any) => {
+									allComponents.push({
+										id: `${metadataType}.${result.fullName}`,
+										metadataType: metadataType,
+										componentName: result.fullName,
+										lastModifiedByName: result.lastModifiedByName || 'Unknown',
+										lastModifiedDate: result.lastModifiedDate || result.lastModifiedDate
+									});
 								});
+								
+								console.log(`Found ${filteredResults.length} ${metadataType} components for user`);
+								completedQueries++;
+								if (completedQueries === totalQueries) {
+									sendResponse();
+								}
+							}).catch(err => {
+								console.error(`Error enriching ${metadataType}:`, err);
+								completedQueries++;
+								if (completedQueries === totalQueries) {
+									sendResponse();
+								}
 							});
-							console.log(`Found ${queryData.result.records.length} ${metadataType} components`);
+						} else {
+							completedQueries++;
+							if (completedQueries === totalQueries) {
+								sendResponse();
+							}
 						}
 					} catch (err) {
-						console.error(`Error parsing query results for ${metadataType}:`, err);
+						console.error(`Error parsing ${metadataType} list:`, err);
+						completedQueries++;
+						if (completedQueries === totalQueries) {
+							sendResponse();
+						}
 					}
 				} else {
-					console.log(`Query failed for ${metadataType} with code ${code}`);
-				}
-
-				// If all queries completed, send response
-				if (completedQueries === metadataTypes.length) {
-					console.log(`Total components found: ${allComponents.length}`);
-					this._panel.webview.postMessage({ 
-						command: 'myComponentsResponse', 
-						components: allComponents 
-					});
-					
-					if (allComponents.length === 0) {
-						vscode.window.showInformationMessage('No components found that were last modified by you.');
+					completedQueries++;
+					if (completedQueries === totalQueries) {
+						sendResponse();
 					}
 				}
 			});
+		});
+
+		// Special handling for CustomField (query from Tooling API)
+		// Query includes NamespacePrefix and ManageableState to determine if it's custom or standard
+		const customFieldQuery = `SELECT DeveloperName, NamespacePrefix, ManageableState, TableEnumOrId, EntityDefinition.QualifiedApiName, LastModifiedById, LastModifiedBy.Name, LastModifiedDate FROM CustomField WHERE LastModifiedById = '${userId}' ORDER BY LastModifiedDate DESC`;
+		const customFieldCmd = `sf data query --query "${customFieldQuery.replace(/"/g, '\\"')}" --use-tooling-api --json`;
+		
+		console.log('Querying CustomField via Tooling API');
+		
+		let customFieldProc: child.ChildProcess = child.exec(customFieldCmd, {
+			maxBuffer: 1024 * 1024 * 8,
+			cwd: vscode.workspace.workspaceFolders[0].uri.fsPath
+		});
+
+		let customFieldBuffer = '';
+
+		customFieldProc.stdout.on("data", (dataArg: any) => {
+			customFieldBuffer += dataArg;
+		});
+
+		customFieldProc.stderr.on("data", (data: any) => {
+			console.log(`stderr for CustomField: ` + data);
+		});
+
+		customFieldProc.on('exit', (code) => {
+			completedQueries++;
+			if (code === 0 && customFieldBuffer) {
+				try {
+					const queryData = JSON.parse(customFieldBuffer);
+					if (queryData.status === 0 && queryData.result && queryData.result.records) {
+						queryData.result.records.forEach((record: any) => {
+							const lastModifiedByName = record.LastModifiedBy ? record.LastModifiedBy.Name : 'Unknown';
+							// Use EntityDefinition.QualifiedApiName for the object API name, fallback to TableEnumOrId if not available
+							const objectName = (record.EntityDefinition && record.EntityDefinition.QualifiedApiName) ? record.EntityDefinition.QualifiedApiName : record.TableEnumOrId || 'Unknown';
+							
+							// Build the field API name
+							let fieldName = record.DeveloperName || 'Unknown';
+							
+							// Add namespace prefix if exists
+							if (record.NamespacePrefix) {
+								fieldName = `${record.NamespacePrefix}__${fieldName}`;
+							}
+							
+							// Add __c suffix if it's a custom field (ManageableState exists or no standard indicator)
+							// Standard fields typically don't have ManageableState or it's null
+							if (record.ManageableState || !fieldName.includes('__')) {
+								fieldName = `${fieldName}__c`;
+							}
+							
+							allComponents.push({
+								id: `CustomField.${objectName}.${fieldName}`,
+								metadataType: 'CustomField',
+								componentName: `${objectName}.${fieldName}`,
+								lastModifiedByName: lastModifiedByName,
+								lastModifiedDate: record.LastModifiedDate
+							});
+						});
+						console.log(`Found ${queryData.result.records.length} CustomField components`);
+					}
+				} catch (err) {
+					console.error('Error parsing CustomField query:', err);
+				}
+			}
+			if (completedQueries === totalQueries) {
+				sendResponse();
+			}
+		});
+
+		// Special handling for ValidationRule (query from Tooling API)
+		const validationRuleQuery = `SELECT ValidationName, EntityDefinition.QualifiedApiName, LastModifiedById, LastModifiedBy.Name, LastModifiedDate FROM ValidationRule WHERE LastModifiedById = '${userId}' ORDER BY LastModifiedDate DESC`;
+		const validationRuleCmd = `sf data query --query "${validationRuleQuery.replace(/"/g, '\\"')}" --use-tooling-api --json`;
+		
+		console.log('Querying ValidationRule via Tooling API');
+		
+		let validationRuleProc: child.ChildProcess = child.exec(validationRuleCmd, {
+			maxBuffer: 1024 * 1024 * 8,
+			cwd: vscode.workspace.workspaceFolders[0].uri.fsPath
+		});
+
+		let validationRuleBuffer = '';
+
+		validationRuleProc.stdout.on("data", (dataArg: any) => {
+			validationRuleBuffer += dataArg;
+		});
+
+		validationRuleProc.stderr.on("data", (data: any) => {
+			console.log(`stderr for ValidationRule: ` + data);
+		});
+
+		validationRuleProc.on('exit', (code) => {
+			completedQueries++;
+			if (code === 0 && validationRuleBuffer) {
+				try {
+					const queryData = JSON.parse(validationRuleBuffer);
+					if (queryData.status === 0 && queryData.result && queryData.result.records) {
+						queryData.result.records.forEach((record: any) => {
+							const lastModifiedByName = record.LastModifiedBy ? record.LastModifiedBy.Name : 'Unknown';
+							const objectName = record.EntityDefinition ? record.EntityDefinition.QualifiedApiName : 'Unknown';
+							allComponents.push({
+								id: `ValidationRule.${objectName}.${record.ValidationName}`,
+								metadataType: 'ValidationRule',
+								componentName: `${objectName}.${record.ValidationName}`,
+								lastModifiedByName: lastModifiedByName,
+								lastModifiedDate: record.LastModifiedDate
+							});
+						});
+						console.log(`Found ${queryData.result.records.length} ValidationRule components`);
+					}
+				} catch (err) {
+					console.error('Error parsing ValidationRule query:', err);
+				}
+			}
+			if (completedQueries === totalQueries) {
+				sendResponse();
+			}
+		});
+
+		// Special handling for WorkflowRule (query from Tooling API)
+		const workflowRuleQuery = `SELECT Name, TableEnumOrId, LastModifiedById, LastModifiedBy.Name, LastModifiedDate FROM WorkflowRule WHERE LastModifiedById = '${userId}' ORDER BY LastModifiedDate DESC`;
+		const workflowRuleCmd = `sf data query --query "${workflowRuleQuery.replace(/"/g, '\\"')}" --use-tooling-api --json`;
+		
+		console.log('Querying WorkflowRule via Tooling API');
+		
+		let workflowRuleProc: child.ChildProcess = child.exec(workflowRuleCmd, {
+			maxBuffer: 1024 * 1024 * 8,
+			cwd: vscode.workspace.workspaceFolders[0].uri.fsPath
+		});
+
+		let workflowRuleBuffer = '';
+
+		workflowRuleProc.stdout.on("data", (dataArg: any) => {
+			workflowRuleBuffer += dataArg;
+		});
+
+		workflowRuleProc.stderr.on("data", (data: any) => {
+			console.log(`stderr for WorkflowRule: ` + data);
+		});
+
+		workflowRuleProc.on('exit', (code) => {
+			completedQueries++;
+			if (code === 0 && workflowRuleBuffer) {
+				try {
+					const queryData = JSON.parse(workflowRuleBuffer);
+					if (queryData.status === 0 && queryData.result && queryData.result.records) {
+						queryData.result.records.forEach((record: any) => {
+							const lastModifiedByName = record.LastModifiedBy ? record.LastModifiedBy.Name : 'Unknown';
+							allComponents.push({
+								id: `WorkflowRule.${record.Name}`,
+								metadataType: 'WorkflowRule',
+								componentName: record.Name,
+								lastModifiedByName: lastModifiedByName,
+								lastModifiedDate: record.LastModifiedDate
+							});
+						});
+						console.log(`Found ${queryData.result.records.length} WorkflowRule components`);
+					}
+				} catch (err) {
+					console.error('Error parsing WorkflowRule query:', err);
+				}
+			}
+			if (completedQueries === totalQueries) {
+				sendResponse();
+			}
 		});
 	}
 

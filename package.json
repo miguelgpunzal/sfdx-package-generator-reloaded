@@ -2,9 +2,12 @@
 	"name": "sfdx-package-xml-generator-reloaded",
 	"displayName": "Salesforce Package XML Generator Reloaded by Miguel Punzal",
 	"description": "Enhanced extension for generating Package.xml on the Salesforce Platform with advanced features",
-	"version": "4.0.1",
+	"version": "4.2.6",
 	"publisher": "MiguelPunzal",
-	"repository": "https://github.com/miguelgpunzal/sfdx-package-generator-reloaded",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/miguelgpunzal/sfdx-package-generator-reloaded.git"
+	},
 	"icon": "icon.png",
 	"keywords": [
 		"sfdx",

@@ -11,7 +11,7 @@ export default function MyComponents({ open, onClose, embedded = false }) {
   const [metadataTypeFilter, setMetadataTypeFilter] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'lastModifiedDate', direction: 'desc' });
   const [metadataTypeFilterAnchor, setMetadataTypeFilterAnchor] = useState(null);
-  const [hasInitialized, setHasInitialized] = useState(false);
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
 
   // Listen for response from extension
   useEffect(() => {
@@ -28,23 +28,17 @@ export default function MyComponents({ open, onClose, embedded = false }) {
     return () => window.removeEventListener('message', messageListener);
   }, []);
 
+  // Fetch components on initial mount only (not on subsequent tab switches)
   useEffect(() => {
-    if (embedded && !hasInitialized) {
-      // For embedded mode, fetch immediately on mount
+    if (embedded && !hasInitiallyLoaded) {
       setLoading(true);
-      setHasInitialized(true);
-      globalState.vscode.postMessage({
-        command: 'FETCH_MY_COMPONENTS'
-      });
-    } else if (open && !embedded) {
-      // For dialog mode, fetch when opened
-      setLoading(true);
+      setHasInitiallyLoaded(true);
       globalState.vscode.postMessage({
         command: 'FETCH_MY_COMPONENTS'
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, embedded]);
+  }, []);
 
   // Update global state when myComponents changes
   useEffect(() => {
@@ -53,6 +47,14 @@ export default function MyComponents({ open, onClose, embedded = false }) {
       payload: myComponents
     });
   }, [myComponents, dispatch]);
+
+  const handleRefresh = () => {
+    setLoading(true);
+    setMyComponents([]);
+    globalState.vscode.postMessage({
+      command: 'FETCH_MY_COMPONENTS'
+    });
+  };
 
   const handleSort = (columnKey) => {
     let direction = 'asc';
@@ -224,11 +226,14 @@ export default function MyComponents({ open, onClose, embedded = false }) {
                   onChange={(e) => setFilterKey(e.target.value)}
                 />
               </div>
-              <button onClick={handleSelectAll} className="btn-secondary">
-                Select All
+              <button onClick={handleRefresh} className="btn btn-primary" disabled={loading}>
+                {loading ? 'Refreshing...' : 'REFRESH'}
               </button>
-              <button onClick={handleClearAll} className="btn-secondary">
-                Clear All
+              <button onClick={handleSelectAll} className="btn btn-secondary">
+                SELECT ALL
+              </button>
+              <button onClick={handleClearAll} className="btn btn-secondary">
+                CLEAR ALL
               </button>
             </div>
 
@@ -407,9 +412,19 @@ export default function MyComponents({ open, onClose, embedded = false }) {
               </table>
             </div>
             
-            {filteredComponents.length === 0 && !loading && (
+            {filteredComponents.length === 0 && !loading && myComponents.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 40, opacity: 0.7 }}>
+                <div style={{ fontSize: '16px', marginBottom: '10px' }}>
+                  Click the <strong>REFRESH</strong> button to load your components
+                </div>
+                <div style={{ fontSize: '14px' }}>
+                  This will query all metadata types you've recently modified
+                </div>
+              </div>
+            )}
+            {filteredComponents.length === 0 && !loading && myComponents.length > 0 && (
               <div style={{ textAlign: 'center', padding: 20 }}>
-                No components found.
+                No components match the current filters.
               </div>
             )}
           </>

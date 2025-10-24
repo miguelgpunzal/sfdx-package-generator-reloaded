@@ -4,6 +4,17 @@ This extension provides an enhanced User Interface to choose metadata components
 
 > **Note**: This project is based on and extends the original work by vignaesh01 at [sfdx-package-generator](https://github.com/vignaesh01/sfdx-package-generator). Special thanks to the original author for creating the foundation of this tool.
 
+## Screenshots
+
+![My Components Tab](screenshot_1.png)
+*My Components Tab - View and select components you last modified*
+
+![All Components Tab](screenshot_2.png)
+*All Components Tab - Browse all metadata components with advanced filtering*
+
+![Package XML Generation](screenshot_3.png)
+*Package XML Generation - Generate and copy package.xml with ease*
+
 ## Features
 
 ### 🎯 Dual Tab Interface
@@ -35,14 +46,17 @@ This extension provides an enhanced User Interface to choose metadata components
 
 ### 👤 "My Components" Feature
 - Automatically identifies components you last modified
-- Queries multiple metadata types:
-  - ApexClass
-  - ApexTrigger
-  - ApexPage
-  - ApexComponent
-  - LightningComponentBundle
-  - Flow
-  - ValidationRule
+- Queries 25+ metadata types including:
+  - **Apex**: ApexClass, ApexTrigger, ApexPage, ApexComponent
+  - **Lightning**: LightningComponentBundle, AuraDefinitionBundle
+  - **Automation**: Flow, WorkflowRule
+  - **Custom Objects & Fields**: CustomObject, CustomField (via FieldDefinition), ValidationRule
+  - **UI Components**: Layout, CustomTab, CustomApplication
+  - **Security**: PermissionSet, Profile
+  - **Data Management**: Queue, Group
+  - **Content**: EmailTemplate, StaticResource, ContentAsset
+  - **Configuration**: CustomLabel, CustomMetadata, ExternalDataSource, NamedCredential, RemoteSiteSetting
+  - **Analytics**: Report, Dashboard
 - Shows modification history (who and when)
 - Generate package.xml from your components only
 

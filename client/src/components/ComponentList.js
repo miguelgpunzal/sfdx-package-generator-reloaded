@@ -1,49 +1,8 @@
 import React,{useState,useContext} from 'react';
 import { GlobalContext } from "../App";
-import { makeStyles } from '@material-ui/core/styles';
-import Card from '@material-ui/core/Card';
-import CardHeader from '@material-ui/core/CardHeader';
-import CardContent from '@material-ui/core/CardContent';
-import Button from '@material-ui/core/Button';
-import TextField from '@material-ui/core/TextField';
-import InputAdornment from '@material-ui/core/InputAdornment';
-import SearchIcon from '@material-ui/icons/Search';
-import Checkbox from '@material-ui/core/Checkbox';
-import FormGroup from '@material-ui/core/FormGroup';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Paper from '@material-ui/core/Paper';
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
-import TableCell from '@material-ui/core/TableCell';
-import TableContainer from '@material-ui/core/TableContainer';
-import TableHead from '@material-ui/core/TableHead';
-import TableRow from '@material-ui/core/TableRow';
-import TableSortLabel from '@material-ui/core/TableSortLabel';
-import Chip from '@material-ui/core/Chip';
-import FilterListIcon from '@material-ui/icons/FilterList';
-import IconButton from '@material-ui/core/IconButton';
-import Popover from '@material-ui/core/Popover';
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemText from '@material-ui/core/ListItemText';
-
-const useStyles = makeStyles({
-  root: {
-    minWidth: 275,
-  },
-  title: {
-    fontSize: 10,
-  },
-  pos: {
-    marginBottom: 12,
-  },
-  table: {
-    minWidth: 650,
-  }
-});
+import './ComponentList.css';
 
 export default function ComponentList({selectedMetadataType,isShowChildren}) {
-  const classes = useStyles();
   const { dispatch }= useContext(GlobalContext);
   const [filterKey,setFilterKey] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: 'lastModifiedDate', direction: 'desc' });
@@ -325,76 +284,73 @@ export default function ComponentList({selectedMetadataType,isShowChildren}) {
   const filteredSelectionState = getFilteredSelectionState();
 
   return (
-    <Card className={classes.root} variant="outlined">
-		<CardHeader
-      titleTypographyProps={{variant:'h6' }}
-			title={selectedMetadataType.text!==''?selectedMetadataType.text:'Available Components'}
-      action={
-        <React.Fragment>
-        <Button onClick={handleSelectAll}>Select All</Button>
-        <Button onClick={handleClearAll}>Clear All</Button>
-        </React.Fragment>
-      }
-      
-      />
-      <CardContent>
-      <TextField
-      id="input-with-icon-textfield"
-      variant="outlined"
-      placeholder={selectedMetadataType.text!==''?'Filter '+selectedMetadataType.text+'..':'Filter Components..'}
-      value={filterKey}
-      onChange={handleFilterKeyChange}
-      size="small"
-      InputProps={{
-      startAdornment: (
-        <InputAdornment position="start">
-        <SearchIcon />
-        </InputAdornment>
-      ),
-      }}
-      fullWidth
-      />
-      {hasActiveFilters() && (
-        <Paper style={{padding: 10, marginTop: 10, backgroundColor: '#f5f5f5'}}>
-          <div style={{display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 5}}>
-            <strong style={{marginRight: 10}}>Active Filters:</strong>
+    <div className="component-list-container">
+      <div className="panel-header">
+        <h2 className="panel-title">
+          {selectedMetadataType.text !== '' ? selectedMetadataType.text : 'Available Components'}
+        </h2>
+        <div className="panel-actions">
+          <button className="btn btn-primary btn-sm" onClick={handleSelectAll}>
+            Select All
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={handleClearAll}>
+            Clear All
+          </button>
+        </div>
+      </div>
+
+      <div className="panel-content">
+        <div className="search-box">
+          <svg className="search-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+          </svg>
+          <input
+            type="text"
+            className="input-field"
+            placeholder={selectedMetadataType.text !== '' ? `Filter ${selectedMetadataType.text}...` : 'Filter Components...'}
+            value={filterKey}
+            onChange={handleFilterKeyChange}
+          />
+        </div>
+
+        {hasActiveFilters() && (
+          <div className="filter-chips">
+            <strong style={{fontSize: '12px', marginRight: '8px'}}>Active Filters:</strong>
             {columnFilters.name.length > 0 && (
-              <Chip 
-                label={`Name: ${columnFilters.name.length} selected`} 
-                onDelete={() => clearColumnFilter('name')}
-                size="small"
-                color="primary"
-              />
+              <div className="chip">
+                Name: {columnFilters.name.length} selected
+                <button className="chip-close" onClick={() => clearColumnFilter('name')}>×</button>
+              </div>
             )}
             {columnFilters.lastModifiedBy.length > 0 && (
-              <Chip 
-                label={`Modified By: ${columnFilters.lastModifiedBy.length} selected`} 
-                onDelete={() => clearColumnFilter('lastModifiedBy')}
-                size="small"
-                color="primary"
-              />
+              <div className="chip">
+                Modified By: {columnFilters.lastModifiedBy.length} selected
+                <button className="chip-close" onClick={() => clearColumnFilter('lastModifiedBy')}>×</button>
+              </div>
             )}
             {columnFilters.lastModifiedDate.length > 0 && (
-              <Chip 
-                label={`Date: ${columnFilters.lastModifiedDate.length} selected`} 
-                onDelete={() => clearColumnFilter('lastModifiedDate')}
-                size="small"
-                color="primary"
-              />
+              <div className="chip">
+                Date: {columnFilters.lastModifiedDate.length} selected
+                <button className="chip-close" onClick={() => clearColumnFilter('lastModifiedDate')}>×</button>
+              </div>
             )}
           </div>
-        </Paper>
-      )}
-      {hasLastModifiedBy ? (
+        )}
+
+        {hasLastModifiedBy ? (
         // Table view with LastModifiedBy column
-        <TableContainer component={Paper} style={{maxHeight: 500, overflow: 'auto', marginTop: 10}}>
-          <Table className={classes.table} size="small" stickyHeader aria-label="metadata components table">
-            <TableHead>
-              <TableRow>
-                <TableCell padding="checkbox">
-                  <Checkbox
-                    indeterminate={filteredSelectionState.indeterminate}
+        <div className="table-container">
+          <table className="modern-table">
+            <thead>
+              <tr>
+                <th style={{width: '40px'}}>
+                  <input
+                    type="checkbox"
+                    className="modern-checkbox"
                     checked={filteredSelectionState.checked}
+                    ref={el => {
+                      if (el) el.indeterminate = filteredSelectionState.indeterminate;
+                    }}
                     onChange={(evt) => {
                       if (evt.target.checked) {
                         handleSelectAll();
@@ -403,163 +359,178 @@ export default function ComponentList({selectedMetadataType,isShowChildren}) {
                       }
                     }}
                   />
-                </TableCell>
-                <TableCell>
-                  <div style={{display: 'flex', alignItems: 'center'}}>
-                    <TableSortLabel
-                      active={sortConfig.key === 'name'}
-                      direction={sortConfig.key === 'name' ? sortConfig.direction : 'asc'}
-                      onClick={() => handleSort('name')}
-                    >
-                      <strong>Component Name</strong>
-                    </TableSortLabel>
-                    <IconButton 
-                      size="small" 
+                </th>
+                <th>
+                  <div className="sort-indicator" style={{display: 'flex', alignItems: 'center'}}>
+                    <span className={sortConfig.key === 'name' ? 'active' : ''} onClick={() => handleSort('name')} style={{cursor: 'pointer'}}>
+                      Component Name
+                      {sortConfig.key === 'name' && (
+                        <span className="sort-arrow">{sortConfig.direction === 'asc' ? ' ▲' : ' ▼'}</span>
+                      )}
+                    </span>
+                    <button 
+                      className="filter-btn"
                       onClick={(e) => handleFilterClick(e, 'name')}
-                      color={columnFilters.name.length > 0 ? 'primary' : 'default'}
+                      style={{
+                        marginLeft: '8px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: columnFilters.name.length > 0 ? 'var(--accent-blue)' : 'inherit'
+                      }}
                     >
-                      <FilterListIcon fontSize="small" />
-                    </IconButton>
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/>
+                      </svg>
+                    </button>
                   </div>
-                </TableCell>
-                <TableCell>
-                  <div style={{display: 'flex', alignItems: 'center'}}>
-                    <TableSortLabel
-                      active={sortConfig.key === 'lastModifiedBy'}
-                      direction={sortConfig.key === 'lastModifiedBy' ? sortConfig.direction : 'asc'}
-                      onClick={() => handleSort('lastModifiedBy')}
-                    >
-                      <strong>Last Modified By</strong>
-                    </TableSortLabel>
-                    <IconButton 
-                      size="small" 
+                </th>
+                <th>
+                  <div className="sort-indicator" style={{display: 'flex', alignItems: 'center'}}>
+                    <span className={sortConfig.key === 'lastModifiedBy' ? 'active' : ''} onClick={() => handleSort('lastModifiedBy')} style={{cursor: 'pointer'}}>
+                      Last Modified By
+                      {sortConfig.key === 'lastModifiedBy' && (
+                        <span className="sort-arrow">{sortConfig.direction === 'asc' ? ' ▲' : ' ▼'}</span>
+                      )}
+                    </span>
+                    <button 
+                      className="filter-btn"
                       onClick={(e) => handleFilterClick(e, 'lastModifiedBy')}
-                      color={columnFilters.lastModifiedBy.length > 0 ? 'primary' : 'default'}
+                      style={{
+                        marginLeft: '8px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: columnFilters.lastModifiedBy.length > 0 ? 'var(--accent-blue)' : 'inherit'
+                      }}
                     >
-                      <FilterListIcon fontSize="small" />
-                    </IconButton>
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/>
+                      </svg>
+                    </button>
                   </div>
-                </TableCell>
-                <TableCell>
-                  <div style={{display: 'flex', alignItems: 'center'}}>
-                    <TableSortLabel
-                      active={sortConfig.key === 'lastModifiedDate'}
-                      direction={sortConfig.key === 'lastModifiedDate' ? sortConfig.direction : 'asc'}
-                      onClick={() => handleSort('lastModifiedDate')}
-                    >
-                      <strong>Last Modified Date</strong>
-                    </TableSortLabel>
-                    <IconButton 
-                      size="small" 
+                </th>
+                <th>
+                  <div className="sort-indicator" style={{display: 'flex', alignItems: 'center'}}>
+                    <span className={sortConfig.key === 'lastModifiedDate' ? 'active' : ''} onClick={() => handleSort('lastModifiedDate')} style={{cursor: 'pointer'}}>
+                      Last Modified Date
+                      {sortConfig.key === 'lastModifiedDate' && (
+                        <span className="sort-arrow">{sortConfig.direction === 'asc' ? ' ▲' : ' ▼'}</span>
+                      )}
+                    </span>
+                    <button 
+                      className="filter-btn"
                       onClick={(e) => handleFilterClick(e, 'lastModifiedDate')}
-                      color={columnFilters.lastModifiedDate.length > 0 ? 'primary' : 'default'}
+                      style={{
+                        marginLeft: '8px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: columnFilters.lastModifiedDate.length > 0 ? 'var(--accent-blue)' : 'inherit'
+                      }}
                     >
-                      <FilterListIcon fontSize="small" />
-                    </IconButton>
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/>
+                      </svg>
+                    </button>
                   </div>
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
               {getFilteredAndSortedChildren().map(child => {
                 const lastModifiedDate = child.lastModifiedDate 
                   ? new Date(child.lastModifiedDate).toLocaleString()
                   : 'N/A';
                 
                 return (
-                  <TableRow key={child.id} hover>
-                    <TableCell padding="checkbox">
-                      <Checkbox 
+                  <tr key={child.id} className={child.isSelected ? 'selected' : ''}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        className="modern-checkbox"
                         checked={child.isSelected}
-                        onClick={evt=>handleComponentClick(child,evt)}
+                        onChange={evt=>handleComponentClick(child,evt)}
                       />
-                    </TableCell>
-                    <TableCell>{child.text}</TableCell>
-                    <TableCell>{child.lastModifiedByName || 'N/A'}</TableCell>
-                    <TableCell>{lastModifiedDate}</TableCell>
-                  </TableRow>
+                    </td>
+                    <td>{child.text}</td>
+                    <td>{child.lastModifiedByName || 'N/A'}</td>
+                    <td>{lastModifiedDate}</td>
+                  </tr>
                 );
               })}
-            </TableBody>
-          </Table>
-        </TableContainer>
+            </tbody>
+          </table>
+        </div>
       ) : (
         // Original checkbox list view
-        <Paper style={{maxHeight: 500, overflow: 'auto'}}>
-          <FormGroup>
-            {
-              selectedMetadataType.children.map(child=>{
-             
-                if(child.text.toUpperCase().includes(filterKey.toUpperCase())){
-             
-                  return (
-                    <FormControlLabel
-                      key={child.id}
-                      control={<Checkbox value={child.id} checked={child.isSelected}
-                      onClick={evt=>handleComponentClick(child,evt)}/>}
-                      label={child.text}/>
-                  )
-
-                }else{
-                  return null;
-                }
-
-              })
-
-            }
-        
-          </FormGroup>
-        </Paper>
+        <div className="component-list-scroll">
+          <ul className="modern-list">
+            {selectedMetadataType.children.map(child=>{
+              if(child.text.toUpperCase().includes(filterKey.toUpperCase())){
+                return (
+                  <li key={child.id} className="modern-list-item">
+                    <input
+                      type="checkbox"
+                      className="modern-checkbox"
+                      checked={child.isSelected}
+                      onChange={evt=>handleComponentClick(child,evt)}
+                    />
+                    <span className="modern-list-item-text">{child.text}</span>
+                  </li>
+                )
+              } else {
+                return null;
+              }
+            })}
+          </ul>
+        </div>
       )}
-      </CardContent>
+      </div>
       
       {/* Filter Popover */}
-      <Popover
-        open={openFilter}
-        anchorEl={filterAnchorEl}
-        onClose={handleFilterClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'left',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'left',
-        }}
-      >
-        <Paper style={{padding: 10, maxHeight: 400, overflow: 'auto', minWidth: 250}}>
-          <div style={{marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-            <strong>
-              {activeFilterColumn === 'name' && 'Filter by Name'}
-              {activeFilterColumn === 'lastModifiedBy' && 'Filter by User'}
-              {activeFilterColumn === 'lastModifiedDate' && 'Filter by Date'}
-            </strong>
-            {activeFilterColumn && columnFilters[activeFilterColumn].length > 0 && (
-              <Button size="small" onClick={() => clearColumnFilter(activeFilterColumn)}>
-                Clear
-              </Button>
-            )}
+      {openFilter && (
+        <div className="filter-popover" style={{
+          position: 'fixed',
+          top: filterAnchorEl ? filterAnchorEl.getBoundingClientRect().bottom + 5 : 0,
+          left: filterAnchorEl ? filterAnchorEl.getBoundingClientRect().left : 0,
+          zIndex: 1000
+        }}>
+          <div className="filter-popover-content">
+            <div className="filter-popover-header">
+              <strong>
+                {activeFilterColumn === 'name' && 'Filter by Name'}
+                {activeFilterColumn === 'lastModifiedBy' && 'Filter by User'}
+                {activeFilterColumn === 'lastModifiedDate' && 'Filter by Date'}
+              </strong>
+              {activeFilterColumn && columnFilters[activeFilterColumn].length > 0 && (
+                <button className="btn btn-sm btn-secondary" onClick={() => clearColumnFilter(activeFilterColumn)}>
+                  Clear
+                </button>
+              )}
+            </div>
+            <ul className="filter-list">
+              {activeFilterColumn && getUniqueValues(activeFilterColumn).map(value => (
+                <li 
+                  key={value} 
+                  className="filter-list-item"
+                  onClick={() => handleColumnFilterToggle(activeFilterColumn, value)}
+                >
+                  <input
+                    type="checkbox"
+                    className="modern-checkbox"
+                    checked={columnFilters[activeFilterColumn].includes(value)}
+                    readOnly
+                  />
+                  <span>{value}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-          <List dense>
-            {activeFilterColumn && getUniqueValues(activeFilterColumn).map(value => (
-              <ListItem 
-                key={value} 
-                button 
-                onClick={() => handleColumnFilterToggle(activeFilterColumn, value)}
-              >
-                <Checkbox
-                  edge="start"
-                  checked={columnFilters[activeFilterColumn].includes(value)}
-                  tabIndex={-1}
-                  disableRipple
-                />
-                <ListItemText primary={value} />
-              </ListItem>
-            ))}
-          </List>
-        </Paper>
-      </Popover>
-    </Card>
+          <div className="filter-backdrop" onClick={handleFilterClose}></div>
+        </div>
+      )}
+    </div>
   );
 }
 

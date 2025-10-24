@@ -1,67 +1,19 @@
 import React, { createContext, useReducer, useEffect, useState } from 'react';
 import { vscode } from "./index";
 import './App.css';
+import './components/ModernUI.css';
 import AppHeader from "./components/AppHeader";
 import MetadataType from "./components/MetadataType";
 import ComponentList from "./components/ComponentList";
 import MyComponents from "./components/MyComponents";
-import { createMuiTheme, makeStyles, ThemeProvider } from '@material-ui/core/styles';
-import Paper from '@material-ui/core/Paper';
-import Grid from '@material-ui/core/Grid';
-import Tabs from '@material-ui/core/Tabs';
-import Tab from '@material-ui/core/Tab';
-import Box from '@material-ui/core/Box';
 import {reducer} from "./context/reducer";
-
-
-const useStyles = makeStyles(theme => ({
-  root: {
-    flexGrow: 1,
-  },
-  tabPanel: {
-    padding: theme.spacing(2),
-  }
-}));
 
 export const GlobalContext = createContext();
 
-function TabPanel(props) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`tabpanel-${index}`}
-      aria-labelledby={`tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box p={0}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-}
-
 function App() {
-  const classes = useStyles();
   const [globalState, dispatch] = useReducer(reducer, {'vscode' : vscode, metadataTypes : [], selectedMetadataType : {id:'',text:'',children:[]}, isShowChildren : false});
   const [tabValue, setTabValue] = useState(0);
   console.log(vscode);
-
-  const element = document.querySelector("body");
-
-  const prefersDarkMode = element.classList.contains("vscode-dark");
-  //const prefersDarkMode = useMediaQuery('(body.vscode-dark)');
-
-  const preferredTheme = createMuiTheme({
-    palette: {
-      // Switching the dark mode on is a single property value change.
-      type: prefersDarkMode ? 'dark' : 'light',
-    },
-  });
 
   useEffect(()=>{
     console.log('Inside INIT_LOAD_REQUEST useEffect() App.js');
@@ -98,55 +50,64 @@ useEffect(()=>{
     };
 },[globalState.vscode]);
 
-  const handleTabChange = (event, newValue) => {
+  const handleTabChange = (newValue) => {
     setTabValue(newValue);
   };
 
   return (
-    <ThemeProvider theme={preferredTheme}>
     <GlobalContext.Provider value={{ globalState, dispatch }}>
-      <div className={classes.root}>
-        <Grid container spacing={1}>
-          <Grid item xs={12}>
-            <Paper><AppHeader/></Paper>
-          </Grid>
-          <Grid item xs={12}>
-            <Paper>
-              <Tabs 
-                value={tabValue} 
-                onChange={handleTabChange} 
-                aria-label="component tabs"
-                indicatorColor="primary"
-                textColor="primary"
-              >
-                <Tab label="My Components" id="tab-0" aria-controls="tabpanel-0" />
-                <Tab label="All Components" id="tab-1" aria-controls="tabpanel-1" />
-              </Tabs>
-            </Paper>
-          </Grid>
-          <Grid item xs={12}>
-            <TabPanel value={tabValue} index={0}>
-              <MyComponents embedded={true} />
-            </TabPanel>
-            <TabPanel value={tabValue} index={1}>
-              <Grid container spacing={1}>
-                <Grid item xs={6}>
-                  <Paper><MetadataType/></Paper>
-                </Grid>
-                <Grid item xs={6}>
-                  <Paper>
-                   {globalState.selectedMetadataType.id!=='' &&
-                    <ComponentList selectedMetadataType={globalState.selectedMetadataType} isShowChildren={globalState.isShowChildren}/>
-                    }
-                  </Paper>
-                </Grid>
-              </Grid>
-            </TabPanel>
-          </Grid>
-          </Grid>
+      <div className="App">
+        <div className="app-container">
+          {/* Header */}
+          <div className="app-header">
+            <AppHeader/>
           </div>
+          
+          {/* Tabs */}
+          <div className="tab-container">
+            <div className="tabs">
+              <button 
+                className={`tab ${tabValue === 0 ? 'active' : ''}`}
+                onClick={() => handleTabChange(0)}
+              >
+                My Components
+              </button>
+              <button 
+                className={`tab ${tabValue === 1 ? 'active' : ''}`}
+                onClick={() => handleTabChange(1)}
+              >
+                All Components
+              </button>
+            </div>
+          </div>
+          
+          {/* Tab Content */}
+          <div className="tab-content">
+            {tabValue === 0 && (
+              <div className="fade-in">
+                <MyComponents embedded={true} />
+              </div>
+            )}
+            
+            {tabValue === 1 && (
+              <div className="two-panel-layout fade-in">
+                <div className="panel">
+                  <MetadataType/>
+                </div>
+                <div className="panel">
+                  {globalState.selectedMetadataType.id !== '' && (
+                    <ComponentList 
+                      selectedMetadataType={globalState.selectedMetadataType} 
+                      isShowChildren={globalState.isShowChildren}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </GlobalContext.Provider>
-    </ThemeProvider>
   );
 }
 

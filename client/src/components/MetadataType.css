@@ -1,0 +1,10 @@
+.metadata-type-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}

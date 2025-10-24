@@ -1,37 +1,8 @@
 import React,{useState,useContext} from 'react';
 import { GlobalContext } from "../App";
-import { makeStyles } from '@material-ui/core/styles';
-import Card from '@material-ui/core/Card';
-import CardHeader from '@material-ui/core/CardHeader';
-import CardContent from '@material-ui/core/CardContent';
-import Button from '@material-ui/core/Button';
-import TextField from '@material-ui/core/TextField';
-import InputAdornment from '@material-ui/core/InputAdornment';
-import SearchIcon from '@material-ui/icons/Search';
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemIcon from '@material-ui/core/ListItemIcon';
-import ListItemText from '@material-ui/core/ListItemText';
-import ListItemSecondaryAction from '@material-ui/core/ListItemSecondaryAction';
-import Checkbox from '@material-ui/core/Checkbox';
-import IconButton from '@material-ui/core/IconButton';
-import NavigateNextIcon from '@material-ui/icons/NavigateNext';
-import Paper from '@material-ui/core/Paper';//Added for #35
-
-const useStyles = makeStyles({
-  root: {
-    minWidth: 275,
-  },
-  title: {
-    fontSize: 10,
-  },
-  pos: {
-    marginBottom: 12,
-  }
-});
+import './MetadataType.css';
 
 export default function MetadataType() {
-  const classes = useStyles();
   const { globalState, dispatch }= useContext(GlobalContext);
   const [filterKey,setFilterKey] = useState("");
   
@@ -97,77 +68,65 @@ export default function MetadataType() {
   }
 
   return (
-    <Card className={classes.root} variant="outlined">
-		<CardHeader
-      titleTypographyProps={{variant:'h6' }}
-			title="Metadata Types"
-      action={
-        <React.Fragment>
-        <Button color="secondary" onClick={handleSelectAll}><strong>Select All</strong></Button>
-        <Button onClick={handleClearAll}>Clear All</Button>
-        </React.Fragment>
-      }
+    <div className="metadata-type-container">
+      <div className="panel-header">
+        <h2 className="panel-title">Metadata Types</h2>
+        <div className="panel-actions">
+          <button className="btn btn-primary btn-sm" onClick={handleSelectAll}>
+            Select All
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={handleClearAll}>
+            Clear All
+          </button>
+        </div>
+      </div>
       
-      />
-      <CardContent>
-        <TextField
-        id="input-with-icon-textfield"
-        variant="outlined"
-        placeholder="Filter Metadata Types.."
-        value={filterKey}
-        onChange={handleFilterKeyChange}
-        size="small"
-        InputProps={{
-        startAdornment: (
-          <InputAdornment position="start">
-          <SearchIcon />
-          </InputAdornment>
-        ),
-        }}
-        fullWidth
-        />
-      {/*Added for #35*/}
-        <Paper style={{maxHeight: 500, overflow: 'auto'}}>
-        <List dense component="nav" aria-label="Metadata Types">
-        {globalState.metadataTypes.map(metadataType =>{
+      <div className="panel-content">
+        <div className="search-box">
+          <svg className="search-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+          </svg>
+          <input
+            type="text"
+            className="input-field"
+            placeholder="Filter Metadata Types..."
+            value={filterKey}
+            onChange={handleFilterKeyChange}
+          />
+        </div>
 
-          if(metadataType.id.toUpperCase().includes(filterKey.toUpperCase())){
-            return(
-              <ListItem button key={metadataType.id} onClick={evt=>handleMetadataClick(evt,metadataType)}
-              selected={metadataType.id===globalState.selectedMetadataType.id}
-              title='Click to view available Metadata Components'>
-              <ListItemIcon>
-                    <Checkbox
-                      edge="start"
-                      tabIndex={-1}
-                      disableRipple
-                      inputProps={{ 'aria-labelledby': 'labelId' }}
-                      checked={metadataType.isSelected}
-                      indeterminate={metadataType.isIndeterminate}
-                      onClick={evt=>handleCheckboxChange(evt,metadataType)}
-                      
-                    />
-              </ListItemIcon>
-              <ListItemText primary={metadataType.id}/>
-              <ListItemSecondaryAction>
-                  <IconButton edge="end" aria-label="comments" 
-                    onClick={evt=>handleMetadataClick(evt,metadataType)}>
-                    <NavigateNextIcon />
-                  </IconButton>
-              </ListItemSecondaryAction>
-            </ListItem>  
-          );
-          }else{
-            return <></>;
-          }
-          
-        })
-      } 
-        
-      </List>
-      </Paper>
-      {/*Added for #35*/}
-      </CardContent>
-    </Card>
+        <ul className="modern-list">
+          {globalState.metadataTypes.map(metadataType => {
+            if(metadataType.id.toUpperCase().includes(filterKey.toUpperCase())){
+              return(
+                <li 
+                  key={metadataType.id} 
+                  className={`modern-list-item ${metadataType.id === globalState.selectedMetadataType.id ? 'active' : ''}`}
+                  onClick={evt=>handleMetadataClick(evt,metadataType)}
+                  title='Click to view available Metadata Components'
+                >
+                  <input
+                    type="checkbox"
+                    className="modern-checkbox"
+                    checked={metadataType.isSelected}
+                    ref={el => {
+                      if (el) el.indeterminate = metadataType.isIndeterminate;
+                    }}
+                    onClick={evt=>handleCheckboxChange(evt,metadataType)}
+                    onChange={() => {}}
+                  />
+                  <span className="modern-list-item-text">{metadataType.id}</span>
+                  <svg className="modern-list-item-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                  </svg>
+                </li>
+              );
+            } else {
+              return null;
+            }
+          })}
+        </ul>
+      </div>
+    </div>
   );
 }

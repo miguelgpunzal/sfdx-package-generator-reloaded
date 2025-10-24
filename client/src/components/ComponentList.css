@@ -1,0 +1,70 @@
+.component-list-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-container {
+  max-height: 500px;
+  overflow: auto;
+  margin-top: 10px;
+}
+
+.component-list-scroll {
+  max-height: 500px;
+  overflow: auto;
+}
+
+.filter-popover {
+  position: fixed;
+  z-index: 1000;
+}
+
+.filter-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+}
+
+.filter-popover-content {
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  max-height: 400px;
+  overflow: auto;
+  min-width: 250px;
+  box-shadow: var(--shadow-lg);
+}
+
+.filter-popover-header {
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--vscode-border);
+}
+
+.filter-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.filter-list-item {
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
+}
+
+.filter-list-item:hover {
+  background: var(--vscode-list-hover);
+}

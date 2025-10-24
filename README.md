@@ -138,11 +138,6 @@ The extension supports all standard Salesforce metadata types including:
 
 **Note**: **Select All** in "All Components" mode skips Reports, Dashboards, Email Templates, and Documents as these are folder-based metadata types.
 
-## Video Tutorial
-[Click to view the Youtube Video](https://youtu.be/uXwIMh8bK0A)
-
-[![How to Use](https://img.youtube.com/vi/uXwIMh8bK0A/0.jpg)](https://youtu.be/uXwIMh8bK0A)
-
 ## Technical Details
 
 ### Built With

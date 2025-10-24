@@ -1,0 +1,55 @@
+{
+	"name": "sfdx-package-xml-generator-reloaded",
+	"displayName": "Salesforce Package XML Generator Reloaded by Miguel Punzal",
+	"description": "Enhanced extension for generating Package.xml on the Salesforce Platform with advanced features",
+	"version": "2.1.0",
+	"publisher": "MiguelPunzal",
+	"repository": "https://github.com/vignaesh01/sfdx-package-generator",
+	"icon": "icon.png",
+	"keywords": [
+		"sfdx",
+		"salesforcedx",
+		"sfdx package xml",
+		"salesforce",
+		"salesforce package xml generator"
+	],
+	"engines": {
+		"vscode": "^1.76.0"
+	},
+	"categories": [
+		"Extension Packs",
+		"Other"
+	],
+	"activationEvents": [],
+	"main": "./out/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "sfdxPackageGen.chooseMetadata",
+				"title": "Choose Metadata Components",
+				"category": "Salesforce Package XML Generator Reloaded"
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"lint": "eslint",
+		"watch": "tsc -w -p ./"
+	},
+	"dependencies": {
+		"clipboardy": "^4.0.0",
+		"xml2js": "^0.4.23"
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.13.0",
+		"@stylistic/eslint-plugin": "^2.9.0",
+		"@types/clipboardy": "^1.1.0",
+		"@types/node": "^20",
+		"@types/vscode": "^1.73.0",
+		"@types/vscode-webview": "^1.57.0",
+		"eslint": "^9.17.0",
+		"typescript": "^5.7.2",
+		"typescript-eslint": "^8.16.0"
+	}
+}

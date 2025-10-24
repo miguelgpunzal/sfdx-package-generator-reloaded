@@ -1,48 +1,10 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { GlobalContext } from "../App";
-import { makeStyles } from '@material-ui/core/styles';
-import Dialog from '@material-ui/core/Dialog';
-import DialogTitle from '@material-ui/core/DialogTitle';
-import DialogContent from '@material-ui/core/DialogContent';
-import DialogActions from '@material-ui/core/DialogActions';
-import Button from '@material-ui/core/Button';
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
-import TableCell from '@material-ui/core/TableCell';
-import TableContainer from '@material-ui/core/TableContainer';
-import TableHead from '@material-ui/core/TableHead';
-import TableRow from '@material-ui/core/TableRow';
-import TableSortLabel from '@material-ui/core/TableSortLabel';
-import Paper from '@material-ui/core/Paper';
-import Checkbox from '@material-ui/core/Checkbox';
-import TextField from '@material-ui/core/TextField';
-import InputAdornment from '@material-ui/core/InputAdornment';
-import SearchIcon from '@material-ui/icons/Search';
-import CircularProgress from '@material-ui/core/CircularProgress';
-import Typography from '@material-ui/core/Typography';
-import Popover from '@material-ui/core/Popover';
-import IconButton from '@material-ui/core/IconButton';
-import FilterListIcon from '@material-ui/icons/FilterList';
-import FormGroup from '@material-ui/core/FormGroup';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Chip from '@material-ui/core/Chip';
-
-const useStyles = makeStyles({
-  table: {
-    minWidth: 650,
-  },
-  loadingContainer: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-    flexDirection: 'column',
-  },
-});
+import './MyComponents.css';
+import '../components/ModernUI.css';
 
 export default function MyComponents({ open, onClose, embedded = false }) {
-  const classes = useStyles();
-  const { globalState } = useContext(GlobalContext);
+  const { globalState, dispatch } = useContext(GlobalContext);
   const [loading, setLoading] = useState(false);
   const [myComponents, setMyComponents] = useState([]);
   const [filterKey, setFilterKey] = useState("");
@@ -83,6 +45,14 @@ export default function MyComponents({ open, onClose, embedded = false }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, embedded]);
+
+  // Update global state when myComponents changes
+  useEffect(() => {
+    dispatch({
+      type: 'UPDATE_MY_COMPONENTS',
+      payload: myComponents
+    });
+  }, [myComponents, dispatch]);
 
   const handleSort = (columnKey) => {
     let direction = 'asc';
@@ -145,34 +115,6 @@ export default function MyComponents({ open, onClose, embedded = false }) {
     setMyComponents(prev => prev.map(comp => 
       comp.id === componentId ? { ...comp, isSelected: !comp.isSelected } : comp
     ));
-  };
-
-  const handleBuildPackageXml = () => {
-    const selectedComponents = myComponents.filter(comp => comp.isSelected);
-    
-    if (selectedComponents.length === 0) {
-      return;
-    }
-
-    // Send selected components to build package.xml
-    globalState.vscode.postMessage({
-      command: 'BUILD_PACKAGE_FROM_MY_COMPONENTS',
-      components: selectedComponents
-    });
-  };
-
-  const handleCopyToClipboard = () => {
-    const selectedComponents = myComponents.filter(comp => comp.isSelected);
-    
-    if (selectedComponents.length === 0) {
-      return;
-    }
-
-    // Send selected components to copy to clipboard
-    globalState.vscode.postMessage({
-      command: 'COPY_MY_COMPONENTS_TO_CLIPBOARD',
-      components: selectedComponents
-    });
   };
 
   const getFilteredAndSortedComponents = () => {
@@ -255,115 +197,114 @@ export default function MyComponents({ open, onClose, embedded = false }) {
   const renderContent = () => (
     <>
       {!embedded && (
-        <DialogTitle id="my-components-dialog-title">
+        <div className="dialog-title">
           My Components ({myComponents.length} total, {selectedCount} selected)
-        </DialogTitle>
+        </div>
       )}
-      <DialogContent style={embedded ? { padding: 0 } : {}}>
+      <div className="dialog-content" style={embedded ? { padding: 0 } : {}}>
         {loading ? (
-          <div className={classes.loadingContainer}>
-            <CircularProgress />
-            <Typography variant="body1" style={{ marginTop: 20 }}>
+          <div className="loading-container">
+            <div className="spinner"></div>
+            <div style={{ marginTop: 20 }}>
               Loading your components...
-            </Typography>
+            </div>
           </div>
         ) : (
           <>
             <div style={{ marginBottom: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
-              <TextField
-                variant="outlined"
-                placeholder="Filter by component name or metadata type..."
-                value={filterKey}
-                onChange={(e) => setFilterKey(e.target.value)}
-                size="small"
-                fullWidth
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <Button onClick={handleSelectAll} variant="outlined">
+              <div className="search-box" style={{ flex: 1 }}>
+                <svg className="search-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                </svg>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Filter by component name or metadata type..."
+                  value={filterKey}
+                  onChange={(e) => setFilterKey(e.target.value)}
+                />
+              </div>
+              <button onClick={handleSelectAll} className="btn-secondary">
                 Select All
-              </Button>
-              <Button onClick={handleClearAll} variant="outlined">
+              </button>
+              <button onClick={handleClearAll} className="btn-secondary">
                 Clear All
-              </Button>
+              </button>
             </div>
 
             {metadataTypeFilter.length > 0 && (
-              <div style={{ marginBottom: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                <Typography variant="body2" style={{ fontWeight: 500 }}>
+              <div className="filter-chips">
+                <strong style={{ fontSize: '13px' }}>
                   Metadata Type Filters:
-                </Typography>
+                </strong>
                 {metadataTypeFilter.map(type => (
-                  <Chip
-                    key={type}
-                    label={type}
-                    onDelete={() => handleMetadataTypeFilterToggle(type)}
-                    size="small"
-                    color="primary"
-                  />
+                  <span key={type} className="chip">
+                    {type}
+                    <button 
+                      className="chip-close"
+                      onClick={() => handleMetadataTypeFilterToggle(type)}
+                      aria-label="Remove filter"
+                    >
+                      ×
+                    </button>
+                  </span>
                 ))}
-                <Button 
-                  size="small" 
+                <button 
+                  className="btn-sm btn-secondary"
                   onClick={handleClearMetadataTypeFilter}
                   style={{ marginLeft: 8 }}
                 >
                   Clear All
-                </Button>
+                </button>
               </div>
             )}
 
-            <Popover
-              open={Boolean(metadataTypeFilterAnchor)}
-              anchorEl={metadataTypeFilterAnchor}
-              onClose={handleMetadataTypeFilterClose}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'left',
-              }}
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'left',
-              }}
-            >
-              <div style={{ padding: 16, maxHeight: 400, overflow: 'auto' }}>
-                <Typography variant="subtitle2" style={{ marginBottom: 8, fontWeight: 600 }}>
-                  Filter by Metadata Type
-                </Typography>
-                <FormGroup>
-                  {uniqueMetadataTypes.map(type => (
-                    <FormControlLabel
-                      key={type}
-                      control={
-                        <Checkbox
+            {Boolean(metadataTypeFilterAnchor) && (
+              <div className="filter-popover" style={{
+                top: metadataTypeFilterAnchor.getBoundingClientRect().bottom + 5,
+                left: metadataTypeFilterAnchor.getBoundingClientRect().left
+              }}>
+                <div className="filter-backdrop" onClick={handleMetadataTypeFilterClose}></div>
+                <div className="filter-popover-content">
+                  <div className="filter-popover-header">
+                    <strong>Filter by Metadata Type</strong>
+                  </div>
+                  <ul className="filter-list">
+                    {uniqueMetadataTypes.map(type => (
+                      <li key={type} className="filter-list-item">
+                        <input
+                          type="checkbox"
+                          className="modern-checkbox"
                           checked={metadataTypeFilter.includes(type)}
                           onChange={() => handleMetadataTypeFilterToggle(type)}
-                          size="small"
+                          id={`filter-${type}`}
                         />
-                      }
-                      label={type}
-                    />
-                  ))}
-                </FormGroup>
-                {uniqueMetadataTypes.length === 0 && (
-                  <Typography variant="body2" color="textSecondary">
-                    No metadata types available
-                  </Typography>
-                )}
+                        <label htmlFor={`filter-${type}`}>{type}</label>
+                      </li>
+                    ))}
+                  </ul>
+                  {uniqueMetadataTypes.length === 0 && (
+                    <div style={{ padding: '8px', opacity: 0.6 }}>
+                      No metadata types available
+                    </div>
+                  )}
+                </div>
               </div>
-            </Popover>
+            )}
             
-            <TableContainer component={Paper} style={{ maxHeight: 500 }}>
-              <Table className={classes.table} size="small" stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        indeterminate={selectionState.indeterminate}
+            <div className="table-container">
+              <table className="modern-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '50px' }}>
+                      <input
+                        type="checkbox"
+                        className="modern-checkbox"
+                        ref={input => {
+                          if (input) {
+                            input.indeterminate = selectionState.indeterminate;
+                          }
+                        }}
                         checked={selectionState.checked}
                         onChange={(evt) => {
                           if (evt.target.checked) {
@@ -373,153 +314,126 @@ export default function MyComponents({ open, onClose, embedded = false }) {
                           }
                         }}
                       />
-                    </TableCell>
-                    <TableCell>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <TableSortLabel
-                          active={sortConfig.key === 'metadataType'}
-                          direction={sortConfig.key === 'metadataType' ? sortConfig.direction : 'asc'}
+                    </th>
+                    <th>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button 
+                          className="sort-button"
                           onClick={() => handleSort('metadataType')}
                         >
                           <strong>Metadata Type</strong>
-                        </TableSortLabel>
-                        <IconButton 
-                          size="small" 
+                          {sortConfig.key === 'metadataType' && (
+                            <span className="sort-indicator">
+                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
+                        </button>
+                        <button 
+                          className="filter-button"
                           onClick={handleMetadataTypeFilterClick}
-                          style={{ marginLeft: 4 }}
+                          style={{ color: metadataTypeFilter.length > 0 ? 'var(--accent-blue)' : 'inherit' }}
                         >
-                          <FilterListIcon 
-                            fontSize="small" 
-                            style={{ color: metadataTypeFilter.length > 0 ? '#1976d2' : 'inherit' }}
-                          />
-                        </IconButton>
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/>
+                          </svg>
+                        </button>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <TableSortLabel
-                        active={sortConfig.key === 'componentName'}
-                        direction={sortConfig.key === 'componentName' ? sortConfig.direction : 'asc'}
+                    </th>
+                    <th>
+                      <button 
+                        className="sort-button"
                         onClick={() => handleSort('componentName')}
                       >
                         <strong>Component Name</strong>
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell>
-                      <TableSortLabel
-                        active={sortConfig.key === 'lastModifiedByName'}
-                        direction={sortConfig.key === 'lastModifiedByName' ? sortConfig.direction : 'asc'}
+                        {sortConfig.key === 'componentName' && (
+                          <span className="sort-indicator">
+                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </button>
+                    </th>
+                    <th>
+                      <button 
+                        className="sort-button"
                         onClick={() => handleSort('lastModifiedByName')}
                       >
                         <strong>Last Modified By</strong>
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell>
-                      <TableSortLabel
-                        active={sortConfig.key === 'lastModifiedDate'}
-                        direction={sortConfig.key === 'lastModifiedDate' ? sortConfig.direction : 'asc'}
+                        {sortConfig.key === 'lastModifiedByName' && (
+                          <span className="sort-indicator">
+                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </button>
+                    </th>
+                    <th>
+                      <button 
+                        className="sort-button"
                         onClick={() => handleSort('lastModifiedDate')}
                       >
                         <strong>Last Modified Date</strong>
-                      </TableSortLabel>
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
+                        {sortConfig.key === 'lastModifiedDate' && (
+                          <span className="sort-indicator">
+                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </button>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
                   {filteredComponents.map((component) => {
                     const lastModifiedDate = component.lastModifiedDate 
                       ? new Date(component.lastModifiedDate).toLocaleString()
                       : 'N/A';
                     
                     return (
-                      <TableRow key={component.id} hover>
-                        <TableCell padding="checkbox">
-                          <Checkbox 
+                      <tr key={component.id} className={component.isSelected ? 'selected' : ''}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            className="modern-checkbox"
                             checked={component.isSelected}
                             onChange={() => handleComponentToggle(component.id)}
                           />
-                        </TableCell>
-                        <TableCell>{component.metadataType}</TableCell>
-                        <TableCell>{component.componentName}</TableCell>
-                        <TableCell>{component.lastModifiedByName || 'Unknown'}</TableCell>
-                        <TableCell>{lastModifiedDate}</TableCell>
-                      </TableRow>
+                        </td>
+                        <td>{component.metadataType}</td>
+                        <td>{component.componentName}</td>
+                        <td>{component.lastModifiedByName || 'Unknown'}</td>
+                        <td>{lastModifiedDate}</td>
+                      </tr>
                     );
                   })}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                </tbody>
+              </table>
+            </div>
             
             {filteredComponents.length === 0 && !loading && (
-              <Typography variant="body1" style={{ textAlign: 'center', padding: 20 }}>
+              <div style={{ textAlign: 'center', padding: 20 }}>
                 No components found.
-              </Typography>
+              </div>
             )}
           </>
         )}
-      </DialogContent>
-      {!embedded && (
-        <DialogActions>
-          <Button onClick={onClose}>
-            Close
-          </Button>
-          <Button 
-            onClick={handleCopyToClipboard} 
-            color="primary"
-            disabled={selectedCount === 0}
-          >
-            Copy to Clipboard
-          </Button>
-          <Button 
-            onClick={handleBuildPackageXml} 
-            color="primary" 
-            variant="contained"
-            disabled={selectedCount === 0}
-          >
-            Build Package.xml
-          </Button>
-        </DialogActions>
-      )}
+      </div>
     </>
   );
 
   // Return dialog wrapper if not embedded, otherwise just render content
   if (embedded) {
     return (
-      <Paper style={{ padding: 16 }}>
-        <Typography variant="h6" style={{ marginBottom: 16 }}>
-          My Components ({myComponents.length} total, {selectedCount} selected)
-        </Typography>
+      <div className="panel" style={{ padding: 16 }}>
         {renderContent()}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(0,0,0,0.12)' }}>
-          <Button 
-            onClick={handleCopyToClipboard} 
-            color="primary"
-            disabled={selectedCount === 0}
-          >
-            Copy to Clipboard
-          </Button>
-          <Button 
-            onClick={handleBuildPackageXml} 
-            color="primary" 
-            variant="contained"
-            disabled={selectedCount === 0}
-          >
-            Build Package.xml
-          </Button>
-        </div>
-      </Paper>
+      </div>
     );
   }
 
+  if (!open) return null;
+
   return (
-    <Dialog 
-      open={open} 
-      onClose={onClose} 
-      maxWidth="lg" 
-      fullWidth
-      aria-labelledby="my-components-dialog-title"
-    >
-      {renderContent()}
-    </Dialog>
+    <div className="dialog-overlay" onClick={onClose}>
+      <div className="dialog" onClick={(e) => e.stopPropagation()}>
+        {renderContent()}
+      </div>
+    </div>
   );
 }

@@ -245,6 +245,11 @@ class CodingPanel {
 						this.handleUpdatePackageXml(message.metadataTypes);
 						return;
 					
+					case 'UPDATE_PACKAGE_XML_FROM_MY_COMPONENTS':
+						console.log('onDidReceiveMessage UPDATE_PACKAGE_XML_FROM_MY_COMPONENTS');
+						this.buildPackageFromMyComponents(message.components);
+						return;
+					
 					case 'COPY_TO_CLIPBOARD':
 						console.log('onDidReceiveMessage COPY_TO_CLIPBOARD');
 						//clipboardy = await import('clipboardy');

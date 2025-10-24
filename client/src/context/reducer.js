@@ -24,6 +24,9 @@ export const reducer = (state, action) => {
         case "MDATA_TYPE_CLEAR_ALL":
             return processMetadataClearAll(state,action);
 
+        case "UPDATE_MY_COMPONENTS":
+            return processUpdateMyComponents(state,action);
+
         case "UPDATE_PACKAGE_XML":
             return processUpdatePackageXml(state,action);
         
@@ -335,22 +338,61 @@ const processMetadataClearAll=(state,action)=>{
     return {...state};
 };
 
+const processUpdateMyComponents=(state,action)=>{
+    console.log('processUpdateMyComponents invoked');
+    const myComponents = action.payload;
+    return {...state, myComponents};
+};
+
 const processUpdatePackageXml=(state,action)=>{
     const vscode=state.vscode;
-    vscode.postMessage({
-        command: 'UPDATE_PACKAGE_XML',
-        metadataTypes : state.metadataTypes
-    });
+    const currentTab = action.payload?.currentTab;
+    
+    console.log('processUpdatePackageXml - currentTab:', currentTab);
+    console.log('processUpdatePackageXml - state.myComponents:', state.myComponents);
+    console.log('processUpdatePackageXml - action.payload:', action.payload);
+    
+    // Tab 0 = My Components, Tab 1 = All Components
+    if (currentTab === 0) {
+        // My Components tab - only send selected myComponents
+        const selectedMyComponents = (state.myComponents || []).filter(comp => comp.isSelected);
+        console.log('processUpdatePackageXml - selectedMyComponents:', selectedMyComponents);
+        console.log('Sending UPDATE_PACKAGE_XML_FROM_MY_COMPONENTS with', selectedMyComponents.length, 'components');
+        vscode.postMessage({
+            command: 'UPDATE_PACKAGE_XML_FROM_MY_COMPONENTS',
+            components: selectedMyComponents
+        });
+    } else {
+        // All Components tab - only send metadataTypes
+        console.log('Sending UPDATE_PACKAGE_XML with metadataTypes');
+        vscode.postMessage({
+            command: 'UPDATE_PACKAGE_XML',
+            metadataTypes : state.metadataTypes
+        });
+    }
 
     return state;
 };
 
 const processCopyToClipboard=(state,action)=>{
     const vscode=state.vscode;
-    vscode.postMessage({
-        command: 'COPY_TO_CLIPBOARD',
-        metadataTypes : state.metadataTypes
-    });
+    const currentTab = action.payload?.currentTab || 1; // Default to All Components (tab 1)
+    
+    // Tab 0 = My Components, Tab 1 = All Components
+    if (currentTab === 0) {
+        // My Components tab - only send selected myComponents
+        const selectedMyComponents = (state.myComponents || []).filter(comp => comp.isSelected);
+        vscode.postMessage({
+            command: 'COPY_MY_COMPONENTS_TO_CLIPBOARD',
+            components: selectedMyComponents
+        });
+    } else {
+        // All Components tab - only send metadataTypes
+        vscode.postMessage({
+            command: 'COPY_TO_CLIPBOARD',
+            metadataTypes : state.metadataTypes
+        });
+    }
 
     return state;
 };

@@ -85,12 +85,23 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn svg {
+  opacity: 1;
 }
 
 .btn-primary {
   background: var(--accent-primary);
-  color: white;
+  color: white !important;
   font-weight: 600;
+}
+
+.btn-primary svg {
+  color: white;
+  fill: white;
 }
 
 .btn-primary:hover {
@@ -101,8 +112,13 @@
 
 .btn-secondary {
   background: transparent;
-  color: var(--vscode-foreground);
+  color: var(--vscode-foreground) !important;
   border: 1px solid var(--vscode-border);
+}
+
+.btn-secondary svg {
+  color: var(--vscode-foreground);
+  fill: var(--vscode-foreground);
 }
 
 .btn-secondary:hover {

@@ -1,0 +1,156 @@
+/* Dialog Overlay */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+/* Dialog Container */
+.dialog {
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--vscode-foreground);
+}
+
+.dialog-title {
+  padding: 20px 24px;
+  font-size: 18px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--vscode-border);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--vscode-foreground);
+}
+
+.dialog-content {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  background: var(--vscode-input-background);
+  color: var(--vscode-foreground);
+}
+
+.dialog-actions {
+  padding: 16px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid var(--vscode-border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Loading Container */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  flex-direction: column;
+  color: var(--vscode-foreground);
+}
+
+/* Select/Clear All Buttons */
+.btn-secondary {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--vscode-button-border);
+  color: var(--vscode-button-foreground);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-secondary:hover {
+  background: var(--vscode-button-hoverBackground);
+  border-color: var(--accent-blue);
+}
+
+.btn-secondary:active {
+  transform: translateY(1px);
+}
+
+/* Sort and Filter Buttons */
+.sort-button {
+  background: none;
+  border: none;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: color 0.15s ease;
+  font-weight: 600;
+}
+
+.sort-button:hover {
+  color: var(--accent-blue);
+}
+
+.sort-indicator {
+  font-size: 14px;
+  margin-left: 4px;
+  color: var(--accent-blue);
+}
+
+.filter-button {
+  background: none;
+  border: none;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  transition: all 0.15s ease;
+  border-radius: 4px;
+}
+
+.filter-button:hover {
+  background: var(--vscode-list-hover);
+}
+
+/* Table Container */
+.table-container {
+  max-height: 500px;
+  overflow: auto;
+  margin-top: 10px;
+  background: var(--vscode-input-background);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--vscode-border);
+}
+
+/* Table Header Fix for My Components */
+.table-container .modern-table thead {
+  background: var(--vscode-input-background);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.table-container .modern-table th {
+  background: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(8px);
+  border-bottom: 2px solid var(--accent-blue);
+  color: var(--vscode-foreground);
+  font-weight: 600;
+}

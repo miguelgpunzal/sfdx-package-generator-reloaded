@@ -66,11 +66,6 @@ Before you set up Salesforce Package XML Generator Reloaded, make sure that you 
 - **Visual Studio Code v1.76 or later**
 - **Salesforce CLI (sf)** - The extension uses the new `sf` commands
 
-## Screenshots
-![Screenshot 1](sfdx-gen-pack1.png)
-
-![Screenshot 2](sfdx-gen-pack2.png)
-
 ## How to Use
 
 ### Initial Setup

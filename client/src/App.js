@@ -11,7 +11,7 @@ import {reducer} from "./context/reducer";
 export const GlobalContext = createContext();
 
 function App() {
-  const [globalState, dispatch] = useReducer(reducer, {'vscode' : vscode, metadataTypes : [], selectedMetadataType : {id:'',text:'',children:[]}, isShowChildren : false});
+  const [globalState, dispatch] = useReducer(reducer, {'vscode' : vscode, metadataTypes : [], selectedMetadataType : {id:'',text:'',children:[]}, isShowChildren : false, myComponents: []});
   const [tabValue, setTabValue] = useState(0);
   console.log(vscode);
 
@@ -55,7 +55,7 @@ useEffect(()=>{
   };
 
   return (
-    <GlobalContext.Provider value={{ globalState, dispatch }}>
+    <GlobalContext.Provider value={{ globalState, dispatch, currentTab: tabValue }}>
       <div className="App">
         <div className="app-container">
           {/* Header */}

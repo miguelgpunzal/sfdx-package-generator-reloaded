@@ -46,6 +46,17 @@
   letter-spacing: -0.3px;
 }
 
+.selection-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+}
+
 .header-actions {
   display: flex;
   gap: 10px;
@@ -54,11 +65,24 @@
 
 .header-actions .btn {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.header-actions .btn svg {
+  opacity: 1;
+  filter: none;
 }
 
 .header-actions .btn-primary {
   background: white;
-  color: var(--accent-blue);
+  color: #1a1a1a !important;
+}
+
+.header-actions .btn-primary svg {
+  color: #1a1a1a;
+  fill: #1a1a1a;
 }
 
 .header-actions .btn-primary:hover {
@@ -69,9 +93,14 @@
 
 .header-actions .btn-secondary {
   background: rgba(255, 255, 255, 0.15);
-  color: white;
+  color: white !important;
   border: 1px solid rgba(255, 255, 255, 0.3);
   backdrop-filter: blur(10px);
+}
+
+.header-actions .btn-secondary svg {
+  color: white;
+  fill: white;
 }
 
 .header-actions .btn-secondary:hover {

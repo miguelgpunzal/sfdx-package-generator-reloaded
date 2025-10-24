@@ -4,7 +4,7 @@
 	"description": "Enhanced extension for generating Package.xml on the Salesforce Platform with advanced features",
 	"version": "2.1.0",
 	"publisher": "MiguelPunzal",
-	"repository": "https://github.com/vignaesh01/sfdx-package-generator",
+	"repository": "https://github.com/miguelgpunzal/sfdx-package-generator-reloaded",
 	"icon": "icon.png",
 	"keywords": [
 		"sfdx",

@@ -1,0 +1,35 @@
+.vscode/**
+.vscode-test/**
+src/**
+.gitignore
+.yarnrc
+vsc-extension-quickstart.md
+**/tsconfig.json
+**/.eslintrc.json
+**/*.map
+**/*.ts
+tslint.json
+**/.env
+**/.env.*
+
+# Client development files
+client/src/**
+client/public/**
+client/node_modules/**
+client/.gitignore
+client/package.json
+client/package-lock.json
+client/README.md
+client/tsconfig.json
+
+# Build artifacts
+node_modules/**/.bin/**
+node_modules/**/test/**
+node_modules/**/tests/**
+node_modules/**/*.md
+node_modules/**/*.txt
+node_modules/**/LICENSE
+node_modules/**/CHANGELOG*
+
+# Documentation
+IMPROVEMENTS.md

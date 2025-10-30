@@ -498,27 +498,18 @@ class CodingPanel {
 					resolve(undefined);
 				});
 				
-				foo.on('exit',(code,signal)=>{
-					console.log('exit code '+code);
-					console.log('bufferOutData '+bufferOutData);
-					
-					let data = JSON.parse(bufferOutData);
-					let depArr=[];
-					let results = data.result;
-					
-					// Fetch additional metadata details including LastModifiedBy
-					this.enrichMetadataWithDetails(results, mType).then(enrichedResults => {
-						this._panel.webview.postMessage({ command: 'listmetadata', results : enrichedResults , metadataType : mType});
-						resolve();
-					}).catch(err => {
-						console.error('Error enriching metadata:', err);
-						// Fall back to original results if enrichment fails
-						this._panel.webview.postMessage({ command: 'listmetadata', results : results , metadataType : mType});
-						resolve();
-					});
+			foo.on('exit',(code,signal)=>{
+				console.log('exit code '+code);
+				console.log('bufferOutData '+bufferOutData);
+				
+				let data = JSON.parse(bufferOutData);
+				let depArr=[];
+				let results = data.result;
+				this.enrichMetadataWithDetails(results, mType).then(enrichedResults => {
+					this._panel.webview.postMessage({ command: 'listmetadata', results : enrichedResults , metadataType : mType});
+					resolve();
 				});
-					
-				});
+			});				});
 	
 				return p;
 				
@@ -631,6 +622,144 @@ class CodingPanel {
 
 	}
 
+	// NOTE: This Tooling API method is NOT needed - sf org list metadata works for all types
+	// Kept for reference only - do not use
+	/*
+	private fetchToolingAPIMetadata(metadataType: string) {
+		console.log(`Fetching ${metadataType} via Tooling API`);
+		
+		vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: `Processing Metadata: ${metadataType}`,
+			cancellable: true
+		}, (progress, token) => {
+			token.onCancellationRequested(() => {
+				console.log("User canceled the operation");
+			});
+
+			return new Promise<void>(resolve => {
+				let query = '';
+				
+				if (metadataType === 'CustomField') {
+					// Query all custom fields across all objects
+					query = `SELECT QualifiedApiName, DeveloperName, NamespacePrefix, ManageableState, EntityDefinition.QualifiedApiName, LastModifiedById, LastModifiedBy.Name, LastModifiedDate FROM CustomField ORDER BY EntityDefinition.QualifiedApiName, DeveloperName`;
+				} else if (metadataType === 'ValidationRule') {
+					query = `SELECT ValidationName, EntityDefinition.QualifiedApiName, LastModifiedById, LastModifiedBy.Name, LastModifiedDate FROM ValidationRule ORDER BY EntityDefinition.QualifiedApiName, ValidationName`;
+				} else if (metadataType === 'WorkflowRule') {
+					query = `SELECT Name, TableEnumOrId, LastModifiedById, LastModifiedBy.Name, LastModifiedDate FROM WorkflowRule ORDER BY TableEnumOrId, Name`;
+				}
+
+				const sfdxCmd = `sf data query --query "${query.replace(/"/g, '\\"')}" --use-tooling-api --json`;
+				
+				console.log(`Executing query: ${query}`);
+				
+				let proc: child.ChildProcess = child.exec(sfdxCmd, {
+					maxBuffer: 1024 * 1024 * 8,
+					cwd: vscode.workspace.workspaceFolders[0].uri.fsPath
+				});
+
+				let bufferOutData = '';
+
+				proc.stdout.on("data", (dataArg: any) => {
+					bufferOutData += dataArg;
+				});
+
+				proc.stderr.on("data", (data: any) => {
+					console.log(`stderr for ${metadataType}: ` + data);
+				});
+
+				proc.on('exit', (code) => {
+					console.log(`Exit code for ${metadataType}: ${code}`);
+					console.log(`Buffer data length: ${bufferOutData.length}`);
+					
+					if (code === 0 && bufferOutData) {
+						try {
+							const queryData = JSON.parse(bufferOutData);
+							console.log(`Query data status: ${queryData.status}`);
+							console.log(`Query data result:`, queryData.result ? `${queryData.result.records?.length || 0} records` : 'no result');
+							
+							if (queryData.status === 0 && queryData.result && queryData.result.records) {
+								const results: any[] = [];
+								
+								queryData.result.records.forEach((record: any) => {
+									let fullName = '';
+									let lastModifiedByName = record.LastModifiedBy ? record.LastModifiedBy.Name : 'Unknown';
+									
+									if (metadataType === 'CustomField') {
+										const objectName = (record.EntityDefinition && record.EntityDefinition.QualifiedApiName) 
+											? record.EntityDefinition.QualifiedApiName 
+											: record.TableEnumOrId || 'Unknown';
+										
+										let fieldName = record.DeveloperName || 'Unknown';
+										
+										// Add namespace prefix if exists
+										if (record.NamespacePrefix) {
+											fieldName = `${record.NamespacePrefix}__${fieldName}`;
+										}
+										
+										// Add __c suffix if it's a custom field
+										if (record.ManageableState || !fieldName.includes('__')) {
+											fieldName = `${fieldName}__c`;
+										}
+										
+										fullName = `${objectName}.${fieldName}`;
+									} else if (metadataType === 'ValidationRule') {
+										const objectName = record.EntityDefinition ? record.EntityDefinition.QualifiedApiName : 'Unknown';
+										fullName = `${objectName}.${record.ValidationName}`;
+									} else if (metadataType === 'WorkflowRule') {
+										fullName = record.Name;
+									}
+									
+									results.push({
+										fullName: fullName,
+										lastModifiedByName: lastModifiedByName,
+										lastModifiedById: record.LastModifiedById,
+										lastModifiedDate: record.LastModifiedDate
+									});
+								});
+								
+								console.log(`Found ${results.length} ${metadataType} records`);
+								this._panel.webview.postMessage({ 
+									command: 'listmetadata', 
+									results: results, 
+									metadataType: metadataType
+								});
+							} else {
+								console.log(`No ${metadataType} records found or invalid response`);
+								console.log(`Full response:`, JSON.stringify(queryData, null, 2));
+								this._panel.webview.postMessage({ 
+									command: 'listmetadata', 
+									results: [], 
+									metadataType: metadataType
+								});
+							}
+						} catch (err) {
+							console.error(`Error parsing ${metadataType} query:`, err);
+							console.error(`Buffer content:`, bufferOutData.substring(0, 500));
+							vscode.window.showErrorMessage(`Error loading ${metadataType}: ${err}`);
+							this._panel.webview.postMessage({ 
+								command: 'listmetadata', 
+								results: [], 
+								metadataType: metadataType
+							});
+						}
+					} else {
+						console.log(`Query failed for ${metadataType} with code ${code}`);
+						console.log(`Buffer output:`, bufferOutData.substring(0, 500));
+						vscode.window.showErrorMessage(`Failed to load ${metadataType}. Check console for details.`);
+						this._panel.webview.postMessage({ 
+							command: 'listmetadata', 
+							results: [], 
+							metadataType: metadataType
+						});
+					}
+					resolve();
+				});
+			});
+		});
+	}
+	*/
+
 	private enrichMetadataWithDetails(results: any, metadataType: string): Promise<any> {
 		console.log('Invoked enrichMetadataWithDetails');
 		
@@ -665,12 +794,6 @@ class CodingPanel {
 				fullNames = [results.fullName];
 			} else {
 				fullNames = results.map((r: any) => r.fullName);
-			}
-
-			// Limit to first 100 to avoid query limits
-			if (fullNames.length > 100) {
-				console.log('Too many records, limiting to first 100');
-				fullNames = fullNames.slice(0, 100);
 			}
 
 			// Build SOQL query with proper escaping
@@ -1131,53 +1254,56 @@ class CodingPanel {
 	private fetchMyComponentsWithQuery(userId: string) {
 		console.log('Fetching components for user ID:', userId);
 		
-		// All metadata types to retrieve - use same approach as All Components
-		const metadataTypes = [
-			'ApexClass', 
-			'ApexTrigger', 
-			'ApexPage', 
-			'ApexComponent',
-			'LightningComponentBundle',
-			'Flow',
-			'CustomObject',
-			'Layout',
-			'CustomTab',
-			'CustomApplication',
-			'Queue',
-			'Group',
-			'EmailTemplate',
-			'StaticResource',
-			'CustomLabel',
-			'ExternalDataSource',
-			'NamedCredential',
-			'RemoteSiteSetting',
-			'ContentAsset',
-			'AuraDefinitionBundle',
-			'CustomMetadata',
-			'Report',
-			'Dashboard',
-			'PermissionSet',
-			'Profile'
-		];
+		// Fetch all available metadata types from org using describe-metadata
+		const describeCmd = `sf org describe-metadata --api-version ${this.VERSION_NUM} --json`;
 		
-		const allComponents: any[] = [];
-		let completedQueries = 0;
-		const totalQueries = metadataTypes.length + 3; // +3 for CustomField, ValidationRule, WorkflowRule
+		let describeExec: child.ChildProcess = child.exec(describeCmd, {
+			maxBuffer: 1024 * 1024 * 8,
+			cwd: vscode.workspace.workspaceFolders[0].uri.fsPath
+		});
 
-		const sendResponse = () => {
-			console.log(`Total components found: ${allComponents.length}`);
-			this._panel.webview.postMessage({ 
-				command: 'myComponentsResponse', 
-				components: allComponents 
-			});
-			
-			if (allComponents.length === 0) {
-				vscode.window.showInformationMessage('No components found that were last modified by you.');
+		let describeBuffer = '';
+
+		describeExec.stdout.on("data", (dataArg: any) => {
+			describeBuffer += dataArg;
+		});
+
+		describeExec.stderr.on("data", (data: any) => {
+			console.log('stderr describe-metadata: ' + data);
+		});
+
+		describeExec.on('exit', (code) => {
+			if (code !== 0 || !describeBuffer) {
+				vscode.window.showErrorMessage('Failed to fetch metadata types from org');
+				return;
 			}
-		};
 
-		// Process each metadata type using sf org list metadata (like All Components)
-		metadataTypes.forEach(metadataType => {
+			const describeData = JSON.parse(describeBuffer);
+			const metadataObjectsArr = describeData.result.metadataObjects;
+			
+			// Extract all metadata type names
+			const metadataTypes: string[] = metadataObjectsArr
+				.filter((obj: any) => !obj.inFolder && !obj.childXmlNames) // Skip folder types and child types
+				.map((obj: any) => obj.xmlName);
+		
+			const allComponents: any[] = [];
+			let completedQueries = 0;
+			const totalQueries = metadataTypes.length + 3; // +3 for CustomField, ValidationRule, WorkflowRule
+
+			const sendResponse = () => {
+				console.log(`Total components found: ${allComponents.length}`);
+				this._panel.webview.postMessage({ 
+					command: 'myComponentsResponse', 
+					components: allComponents 
+				});
+				
+				if (allComponents.length === 0) {
+					vscode.window.showInformationMessage('No components found that were last modified by you.');
+				}
+			};
+
+			// Process each metadata type using sf org list metadata (like All Components)
+			metadataTypes.forEach(metadataType => {
 			const listCmd = `sf org list metadata --api-version ${this.VERSION_NUM} --json -m ${metadataType}`;
 			console.log(`Listing ${metadataType} metadata`);
 			
@@ -1415,6 +1541,7 @@ class CodingPanel {
 				sendResponse();
 			}
 		});
+		}); // Close describeExec.on('exit') block
 	}
 
 	private buildPackageFromMyComponents(components: any[]) {

@@ -30,6 +30,25 @@ export default function ComponentList({selectedMetadataType,isShowChildren}) {
     
   };
 
+  const handleRowClick = (component, evt) => {
+    // Ignore clicks on the checkbox itself (it handles its own state)
+    if (evt.target.type === 'checkbox') {
+      return;
+    }
+    
+    console.log("handleRowClick invoked ComponentList.js");
+    const compId = component.id;
+    selectedMetadataType.children = selectedMetadataType.children.map(child => {
+      if (compId === child.id) {
+        child.isSelected = !child.isSelected; // Toggle the state
+      }
+      return child;
+    });
+
+    selectedMetadataType = updateMetadataType(selectedMetadataType);
+    dispatch({type: "COMPONENT_CHECKBOX_STATE_CHANGE", payload: selectedMetadataType});
+  };
+
   const updateMetadataType = (selectedMetadataType)=>{
     console.log("updateMetadataType invoked ComponentList.js");
 
@@ -237,10 +256,13 @@ export default function ComponentList({selectedMetadataType,isShowChildren}) {
   const getFilteredAndSortedChildren = () => {
     let children = selectedMetadataType.children;
     
+    // Filter out invalid/malformed entries (must have text and id)
+    children = children.filter(child => child && child.text && child.id);
+    
     // Apply text search filter
     if (filterKey) {
       children = children.filter(child => 
-        child.text.toUpperCase().includes(filterKey.toUpperCase())
+        child.text && child.text.toUpperCase().includes(filterKey.toUpperCase())
       );
     }
     
@@ -444,7 +466,12 @@ export default function ComponentList({selectedMetadataType,isShowChildren}) {
                   : 'N/A';
                 
                 return (
-                  <tr key={child.id} className={child.isSelected ? 'selected' : ''}>
+                  <tr 
+                    key={child.id} 
+                    className={child.isSelected ? 'selected' : ''}
+                    onClick={(evt) => handleRowClick(child, evt)}
+                    style={{cursor: 'pointer'}}
+                  >
                     <td>
                       <input
                         type="checkbox"
@@ -467,9 +494,15 @@ export default function ComponentList({selectedMetadataType,isShowChildren}) {
         <div className="component-list-scroll">
           <ul className="modern-list">
             {selectedMetadataType.children.map(child=>{
-              if(child.text.toUpperCase().includes(filterKey.toUpperCase())){
+              // Filter out invalid entries and apply text search
+              if(child && child.text && child.id && child.text.toUpperCase().includes(filterKey.toUpperCase())){
                 return (
-                  <li key={child.id} className="modern-list-item">
+                  <li 
+                    key={child.id} 
+                    className="modern-list-item"
+                    onClick={(evt) => handleRowClick(child, evt)}
+                    style={{cursor: 'pointer'}}
+                  >
                     <input
                       type="checkbox"
                       className="modern-checkbox"

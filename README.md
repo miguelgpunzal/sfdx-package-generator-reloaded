@@ -46,6 +46,11 @@ This extension provides an enhanced User Interface to choose metadata components
 
 ### 👤 "My Components" Feature
 - Automatically identifies components you last modified
+- **Progressive Loading**: Components load incrementally with real-time progress indicators
+- **Per-Type Caching**: Each metadata type is cached independently for faster subsequent loads
+- **Selective Refresh**: Choose specific metadata types to refresh without losing other cached data
+- **Last Refresh Tracking**: Displays when components were last fetched with visual warnings for stale data (>24 hours)
+- **Smart Refresh Modal**: Search and filter available metadata types for targeted updates
 - Queries 25+ metadata types including:
   - **Apex**: ApexClass, ApexTrigger, ApexPage, ApexComponent
   - **Lightning**: LightningComponentBundle, AuraDefinitionBundle
@@ -58,6 +63,7 @@ This extension provides an enhanced User Interface to choose metadata components
   - **Configuration**: CustomLabel, CustomMetadata, ExternalDataSource, NamedCredential, RemoteSiteSetting
   - **Analytics**: Report, Dashboard
 - Shows modification history (who and when)
+- **Clickable Rows**: Click anywhere on a table row to toggle component selection
 - Generate package.xml from your components only
 
 ### 📋 Package.xml Generation
@@ -95,13 +101,24 @@ Before you set up Salesforce Package XML Generator Reloaded, make sure that you 
 3. The extension opens with two tabs: **My Components** and **All Components**
 
 ### Using "My Components" Tab
-1. The tab automatically loads components you last modified
-2. Use the search box to filter components
-3. Click filter icons to narrow by metadata type
-4. Sort by clicking column headers
-5. Select components using checkboxes
-6. Click **Build Package.xml** to update your manifest file
-7. Or click **Copy to Clipboard** to copy the XML content
+1. The tab automatically loads components you last modified from cache (if available)
+2. **First-time load**: Components are fetched progressively with a loading indicator showing current progress
+3. **Subsequent loads**: Cached components load instantly
+4. **Refresh Data**: Click the **Refresh** button to update specific metadata types
+   - A modal appears showing all available metadata types
+   - Search to filter the list of types
+   - Select specific types to refresh (8 common types pre-selected by default)
+   - Click **Confirm** to refresh only selected types while preserving other cached data
+   - Or click **Cancel** to close without refreshing
+5. **Last Refresh Indicator**: Shows when data was last fetched
+   - Displays timestamp at the top of the table
+   - Flashes red if data is more than 24 hours old
+6. Use the search box to filter components by name or type
+7. Click filter icons to narrow by metadata type, last modified user, or date
+8. Sort by clicking column headers
+9. Select components using checkboxes or by clicking table rows
+10. Click **Build Package.xml** to update your manifest file
+11. Or click **Copy to Clipboard** to copy the XML content
 
 ### Using "All Components" Tab
 1. Select a metadata type from the left panel (e.g., ApexClass, CustomObject)
@@ -186,14 +203,20 @@ No Copyright Infringement Intended
 This extension is completely free and not for commercial use
 
 ### Enhancements in This Version
-- Added "My Components" feature
+- Added "My Components" feature with LastModifiedBy tracking
+- **Implemented progressive loading** with real-time progress indicators
+- **Per-metadata-type caching** for faster performance and selective refresh
+- **Selective refresh modal** with search and multi-select capabilities
+- **Last refresh timestamp tracking** with visual stale data warnings
+- **Clickable table rows** for easier component selection
 - Implemented advanced table view with sorting
-- Added column-based filtering
+- Added column-based filtering with multi-select
 - Implemented metadata enrichment with LastModifiedBy
 - Enhanced UI with Material-UI components
 - Added dual-tab interface
 - Improved selection logic for filtered items
 - Added dark mode support
+- Compact loading indicators (75% smaller progress bar)
 
 ## Contributing
 Contributions are welcome! Please feel free to submit issues or pull requests.

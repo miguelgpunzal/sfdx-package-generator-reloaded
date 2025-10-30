@@ -17,7 +17,7 @@ export function activate(context: vscode.ExtensionContext) {
 			console.log(clipboardy);
 			DEFAULT_API_VERSION=await getAPIVersion();
 			console.log('DEFAULT_API_VERSION '+DEFAULT_API_VERSION);
-			CodingPanel.createOrShow(context.extensionPath);
+			CodingPanel.createOrShow(context.extensionPath, context);
 		})
 	);
 
@@ -72,7 +72,11 @@ class CodingPanel {
 
 	private readonly _panel: vscode.WebviewPanel;
 	private readonly _extensionPath: string;
+	private readonly _context: vscode.ExtensionContext;
 	private _disposables: vscode.Disposable[] = [];
+	private static readonly MY_COMPONENTS_CACHE_KEY = 'myComponentsCacheByType'; // Cache organized by metadata type
+	private static readonly MY_COMPONENTS_LAST_REFRESH_KEY = 'myComponentsLastRefresh'; // Last refresh timestamp
+	private _currentMyComponentsCache: any[] = []; // Temporary storage for ALL components during fetch
 	private reportFolderMap={
 		Dashboard : 'DashboardFolder',
 		Document :'DocumentFolder',
@@ -142,7 +146,7 @@ class CodingPanel {
 	private LOADING='*loading..';
 	private infoMsg='All metadata selected except ';
 
-	public static createOrShow(extensionPath: string) {
+	public static createOrShow(extensionPath: string, context: vscode.ExtensionContext) {
 		const column = vscode.window.activeTextEditor
 			? vscode.window.activeTextEditor.viewColumn
 			: undefined;
@@ -167,17 +171,18 @@ class CodingPanel {
 			}
 		);
 		//get the API version
-		CodingPanel.currentPanel = new CodingPanel(panel, extensionPath);
+		CodingPanel.currentPanel = new CodingPanel(panel, extensionPath, context);
 
 	}
 
-	public static revive(panel: vscode.WebviewPanel, extensionPath: string) {
-		CodingPanel.currentPanel = new CodingPanel(panel, extensionPath);
+	public static revive(panel: vscode.WebviewPanel, extensionPath: string, context: vscode.ExtensionContext) {
+		CodingPanel.currentPanel = new CodingPanel(panel, extensionPath, context);
 	}
 
-	private constructor(panel: vscode.WebviewPanel, extensionPath: string) {
+	private constructor(panel: vscode.WebviewPanel, extensionPath: string, context: vscode.ExtensionContext) {
 		this._panel = panel;
 		this._extensionPath = extensionPath;
+		this._context = context;
 
 		// Set the webview's initial html content
 		this._update();
@@ -258,31 +263,35 @@ class CodingPanel {
 					
 					case 'OPEN_URL':
 						console.log('onDidReceiveMessage OPEN_URL');
-						this.openUrl(message.url);
-						return;
-					
-					case 'FETCH_MY_COMPONENTS':
-						console.log('onDidReceiveMessage FETCH_MY_COMPONENTS');
-						this.fetchMyComponents();
-						return;
-					
-					case 'BUILD_PACKAGE_FROM_MY_COMPONENTS':
-						console.log('onDidReceiveMessage BUILD_PACKAGE_FROM_MY_COMPONENTS');
-						this.buildPackageFromMyComponents(message.components);
-						return;
-					
-					case 'COPY_MY_COMPONENTS_TO_CLIPBOARD':
-						console.log('onDidReceiveMessage COPY_MY_COMPONENTS_TO_CLIPBOARD');
-						this.copyMyComponentsToClipboard(message.components);
-						return;
-					//Added for Ui Changes - ends
-
-				}
-			},
-			null,
-			this._disposables
-		);
-	}
+					this.openUrl(message.url);
+					return;
+				
+				case 'GET_ALL_METADATA_TYPES':
+					console.log('onDidReceiveMessage GET_ALL_METADATA_TYPES');
+					this.getAllMetadataTypes();
+					return;
+				
+				case 'FETCH_MY_COMPONENTS':
+					console.log('onDidReceiveMessage FETCH_MY_COMPONENTS');
+					this.fetchMyComponents(message.forceRefresh || false, message.metadataTypes, message.isSelectiveRefresh || false);
+					return;
+				
+				case 'BUILD_PACKAGE_FROM_MY_COMPONENTS':
+					console.log('onDidReceiveMessage BUILD_PACKAGE_FROM_MY_COMPONENTS');
+					this.buildPackageFromMyComponents(message.components);
+					return;
+				
+				case 'COPY_MY_COMPONENTS_TO_CLIPBOARD':
+					console.log('onDidReceiveMessage COPY_MY_COMPONENTS_TO_CLIPBOARD');
+					this.copyMyComponentsToClipboard(message.components);
+					return;
+				//Added for Ui Changes - ends
+			}
+		},
+		null,
+		this._disposables
+	);
+}
 
 	private buildPackageXML(selectedNodes,isCopyToClipboard){
 		console.log('Invoked buildPackageXML');
@@ -1123,13 +1132,104 @@ class CodingPanel {
 		vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(url));
 	}
 
-	private fetchMyComponents() {
-		console.log('Invoked fetchMyComponents');
+	private getAllMetadataTypes() {
+		console.log('Getting all metadata types from org...');
 		
-		// Get current user ID
+		const typesCmd = `sf org list metadata-types --api-version ${this.VERSION_NUM} --json`;
+		
+		let typesExec: child.ChildProcess = child.exec(typesCmd, {
+			maxBuffer: 1024 * 1024 * 8,
+			cwd: vscode.workspace.workspaceFolders[0].uri.fsPath
+		});
+
+		let typesBuffer = '';
+
+		typesExec.stdout.on("data", (dataArg: any) => {
+			typesBuffer += dataArg;
+		});
+
+		typesExec.stderr.on("data", (data: any) => {
+			console.log('stderr for metadata types: ' + data);
+		});
+
+		typesExec.on('exit', (code) => {
+			if (code === 0 && typesBuffer) {
+				try {
+					const typesData = JSON.parse(typesBuffer);
+					console.log('Metadata types response:', JSON.stringify(typesData, null, 2));
+					
+					if (typesData.status === 0 && typesData.result) {
+						// The result is an array of metadata type objects
+						const metadataTypesArray = Array.isArray(typesData.result) 
+							? typesData.result 
+							: (typesData.result.metadataObjects || []);
+						
+						const metadataTypes = metadataTypesArray
+							.map((obj: any) => obj.xmlName)
+							.sort();
+						
+						console.log(`Found ${metadataTypes.length} metadata types`);
+						
+						// Send metadata types to UI
+						this._panel.webview.postMessage({
+							command: 'allMetadataTypes',
+							types: metadataTypes
+						});
+					} else {
+						console.error('Invalid response from metadata types command');
+						vscode.window.showErrorMessage('Failed to get metadata types from org');
+					}
+				} catch (error) {
+					console.error('Error parsing metadata types:', error);
+					vscode.window.showErrorMessage('Failed to get metadata types from org');
+				}
+			} else {
+				console.error('Failed to execute metadata types command, exit code:', code);
+				vscode.window.showErrorMessage('Failed to get metadata types from org');
+			}
+		});
+	}
+
+	private fetchMyComponents(forceRefresh: boolean = false, metadataTypes?: string[], isSelectiveRefresh: boolean = false) {
+		console.log('Invoked fetchMyComponents, forceRefresh:', forceRefresh, 'metadataTypes:', metadataTypes, 'isSelectiveRefresh:', isSelectiveRefresh);
+		
+	// Check cache first if not forcing refresh
+	if (!forceRefresh) {
+		const cacheByType = this._context.workspaceState.get<{[key: string]: any[]}>(CodingPanel.MY_COMPONENTS_CACHE_KEY);
+		const lastRefresh = this._context.workspaceState.get<string>(CodingPanel.MY_COMPONENTS_LAST_REFRESH_KEY);
+		if (cacheByType && Object.keys(cacheByType).length > 0) {
+			// Flatten all cached components from all metadata types
+			const allCachedComponents = Object.values(cacheByType).flat();
+			console.log(`Loading ${allCachedComponents.length} components from cache (${Object.keys(cacheByType).length} metadata types)`);
+			this._panel.webview.postMessage({ 
+				command: 'myComponentsResponse', 
+				components: allCachedComponents,
+				fromCache: true,
+				lastRefresh: lastRefresh
+			});
+			return;
+		}
+		console.log('No cached components found, fetching from server...');
+	} else {
+		console.log('Force refresh requested, clearing cache for selected types and fetching from server...');
+		// Clear the cache only for the selected metadata types when force refreshing
+		const cacheByType = this._context.workspaceState.get<{[key: string]: any[]}>(CodingPanel.MY_COMPONENTS_CACHE_KEY) || {};
+		if (metadataTypes && metadataTypes.length > 0) {
+			// Only clear cache for the specific metadata types being refreshed
+			metadataTypes.forEach(type => {
+				delete cacheByType[type];
+			});
+			console.log(`Cleared cache for metadata types: ${metadataTypes.join(', ')}`);
+		} else {
+			// If no specific types, clear all (full refresh)
+			Object.keys(cacheByType).forEach(key => delete cacheByType[key]);
+			console.log('Cleared all cache');
+		}
+		this._context.workspaceState.update(CodingPanel.MY_COMPONENTS_CACHE_KEY, cacheByType);
+	}		// Get current user ID
 		vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
-			title: "Fetching your components...",
+			title: forceRefresh ? "Refreshing your components..." : "Fetching your components...",
 			cancellable: true
 		}, (progress, token) => {
 			token.onCancellationRequested(() => {
@@ -1213,7 +1313,7 @@ class CodingPanel {
 							vscode.window.showInformationMessage(`Found user: ${userName} (${username}), ID: ${userId}`);
 							
 							if (userId) {
-								this.fetchMyComponentsWithQuery(userId);
+								this.fetchMyComponentsWithQuery(userId, metadataTypes, isSelectiveRefresh);
 							} else {
 								console.error('userId is null or undefined');
 								vscode.window.showErrorMessage('Could not determine current user ID (userId is empty)');
@@ -1251,59 +1351,149 @@ class CodingPanel {
 		});
 	}
 
-	private fetchMyComponentsWithQuery(userId: string) {
-		console.log('Fetching components for user ID:', userId);
+	private fetchMyComponentsWithQuery(userId: string, metadataTypes?: string[], isSelectiveRefresh: boolean = false) {
+		console.log('Fetching components for user ID:', userId, 'filtered types:', metadataTypes);
 		
-		// Fetch all available metadata types from org using describe-metadata
-		const describeCmd = `sf org describe-metadata --api-version ${this.VERSION_NUM} --json`;
-		
-		let describeExec: child.ChildProcess = child.exec(describeCmd, {
-			maxBuffer: 1024 * 1024 * 8,
-			cwd: vscode.workspace.workspaceFolders[0].uri.fsPath
-		});
+		vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: "Fetching your components...",
+			cancellable: true
+		}, async (progress, token) => {
+			token.onCancellationRequested(() => {
+				console.log("User canceled the operation");
+			});
 
-		let describeBuffer = '';
-
-		describeExec.stdout.on("data", (dataArg: any) => {
-			describeBuffer += dataArg;
-		});
-
-		describeExec.stderr.on("data", (data: any) => {
-			console.log('stderr describe-metadata: ' + data);
-		});
-
-		describeExec.on('exit', (code) => {
-			if (code !== 0 || !describeBuffer) {
-				vscode.window.showErrorMessage('Failed to fetch metadata types from org');
-				return;
-			}
-
-			const describeData = JSON.parse(describeBuffer);
-			const metadataObjectsArr = describeData.result.metadataObjects;
+			// Step 1: Get ALL metadata types from org (EXACTLY like All Components does)
+			const describeCmd = `sf org list metadata-types --api-version ${this.VERSION_NUM} --json`;
 			
-			// Extract all metadata type names
-			const metadataTypes: string[] = metadataObjectsArr
-				.filter((obj: any) => !obj.inFolder && !obj.childXmlNames) // Skip folder types and child types
-				.map((obj: any) => obj.xmlName);
-		
-			const allComponents: any[] = [];
-			let completedQueries = 0;
-			const totalQueries = metadataTypes.length + 3; // +3 for CustomField, ValidationRule, WorkflowRule
+			let describeExec: child.ChildProcess = child.exec(describeCmd, {
+				maxBuffer: 1024 * 1024 * 8,
+				cwd: vscode.workspace.workspaceFolders[0].uri.fsPath
+			});
 
-			const sendResponse = () => {
-				console.log(`Total components found: ${allComponents.length}`);
+			let describeBuffer = '';
+
+			describeExec.stdout.on("data", (dataArg: any) => {
+				describeBuffer += dataArg;
+			});
+
+			describeExec.stderr.on("data", (data: any) => {
+				console.log('stderr list metadata-types: ' + data);
+			});
+
+			return new Promise<void>((resolve) => {
+				describeExec.on('exit', async (code) => {
+					if (code !== 0 || !describeBuffer) {
+						console.error('Failed to fetch metadata types from org, exit code:', code);
+						vscode.window.showErrorMessage('Failed to fetch metadata types from org');
+						resolve();
+						return;
+					}
+
+					try {
+						const describeData = JSON.parse(describeBuffer);
+						console.log('Full describeData:', JSON.stringify(describeData, null, 2));
+						
+						const metadataObjectsArr = describeData.result.metadataObjects;
+						console.log('metadataObjectsArr length:', metadataObjectsArr ? metadataObjectsArr.length : 0);
+						
+						if (!metadataObjectsArr || metadataObjectsArr.length === 0) {
+							console.error('No metadata objects found in org');
+							vscode.window.showErrorMessage('No metadata types found in org');
+							resolve();
+							return;
+						}
+						
+						// Extract all metadata type names
+						let allMetadataTypes: string[] = metadataObjectsArr.map((obj: any) => obj.xmlName);
+						
+						// Filter to only selected types if provided
+						const typesToProcess = metadataTypes && metadataTypes.length > 0 
+							? allMetadataTypes.filter(type => metadataTypes.includes(type))
+							: allMetadataTypes;
+					
+						console.log(`Found ${allMetadataTypes.length} total metadata types, processing ${typesToProcess.length} types`);
+						console.log('First 10 metadata types to process:', typesToProcess.slice(0, 10));
+						
+						// Send initial empty response to show loading state
+						this._currentMyComponentsCache = []; // Reset cache accumulator
+						this._panel.webview.postMessage({ 
+							command: 'myComponentsResponse', 
+							components: [],
+							isLoading: true,
+							isSelectiveRefresh: isSelectiveRefresh, // Pass the flag to frontend
+							totalTypes: typesToProcess.length
+						});
+
+						let processedCount = 0;
+
+						// Step 2: For each metadata type, get ALL components (EXACTLY like All Components)
+						for (const metadataType of typesToProcess) {
+							if (token.isCancellationRequested) {
+								break;
+							}
+
+							await this.processMetadataTypeForUser(metadataType, userId, processedCount, typesToProcess.length, progress);
+							processedCount++;
+						}
+
+						// Cache saved progressively during processing - no need for final save here
+						console.log(`Completed processing. Total ${this._currentMyComponentsCache.length} components cached.`);
+
+						// Save the last refresh timestamp
+						const lastRefresh = new Date().toISOString();
+						await this._context.workspaceState.update(CodingPanel.MY_COMPONENTS_LAST_REFRESH_KEY, lastRefresh);
+						console.log(`Saved last refresh timestamp: ${lastRefresh}`);
+
+						// Send final completion message
+						this._panel.webview.postMessage({ 
+							command: 'myComponentsComplete',
+							lastRefresh: lastRefresh
+						});
+
+						resolve();
+					} catch (error) {
+						console.error('Error parsing metadata types:', error);
+						vscode.window.showErrorMessage('Failed to parse metadata types from org');
+						resolve();
+					}
+				});
+			});
+		});
+	}
+
+	private async processMetadataTypeForUser(metadataType: string, userId: string, processedCount: number, totalTypes: number, progress: any): Promise<void> {
+		return new Promise(async (resolve) => {
+			progress.report({ 
+				increment: (1 / totalTypes) * 100,
+				message: `Processing ${metadataType}... (${processedCount + 1}/${totalTypes})`
+			});
+
+			// Check if this metadata type is already cached
+			const cacheByType = this._context.workspaceState.get<{[key: string]: any[]}>(CodingPanel.MY_COMPONENTS_CACHE_KEY, {});
+			
+			if (cacheByType[metadataType]) {
+				console.log(`Loading ${cacheByType[metadataType].length} ${metadataType} components from cache`);
+				
+				// Add cached components to current accumulator
+				this._currentMyComponentsCache.push(...cacheByType[metadataType]);
+				
+				// Send cached components to UI
 				this._panel.webview.postMessage({ 
-					command: 'myComponentsResponse', 
-					components: allComponents 
+					command: 'myComponentsProgress', 
+					components: cacheByType[metadataType],
+					processedCount: processedCount + 1,
+					totalTypes: totalTypes,
+					fromCache: true
 				});
 				
-				if (allComponents.length === 0) {
-					vscode.window.showInformationMessage('No components found that were last modified by you.');
-				}
-			};
+				resolve();
+				return;
+			}
+			
+			console.log(`No cache for ${metadataType}, fetching from server...`);
 
-			// Process each metadata type using sf org list metadata (like All Components)
-			metadataTypes.forEach(metadataType => {
+			// Get ALL components for this metadata type (EXACTLY like All Components does)
 			const listCmd = `sf org list metadata --api-version ${this.VERSION_NUM} --json -m ${metadataType}`;
 			console.log(`Listing ${metadataType} metadata`);
 			
@@ -1327,221 +1517,282 @@ class CodingPanel {
 					try {
 						const listData = JSON.parse(listBuffer);
 						if (listData.status === 0 && listData.result) {
-							// Enrich with details and filter by user
-							this.enrichMetadataWithDetails(listData.result, metadataType).then(enrichedResults => {
-								// Filter by userId - only keep components modified by the current user
-								const filteredResults = Array.isArray(enrichedResults) 
-									? enrichedResults.filter((r: any) => r.lastModifiedById === userId)
-									: (enrichedResults.lastModifiedById === userId ? [enrichedResults] : []);
+						// Try to enrich with LastModifiedBy details
+						this.enrichMetadataWithDetails(listData.result, metadataType).then(async enrichedResults => {
+							const resultsArray = Array.isArray(enrichedResults) ? enrichedResults : [enrichedResults];
+							
+							console.log(`Found ${resultsArray.length} ${metadataType} components`);								// Filter to only user's components if we have lastModifiedById
+								// Otherwise, send ALL components (user can't filter, but at least they see them)
+								const userComponents: any[] = [];
+								let hasFilterableData = false;
 								
-								// Add to components with proper structure
-								filteredResults.forEach((result: any) => {
-									allComponents.push({
-										id: `${metadataType}.${result.fullName}`,
-										metadataType: metadataType,
-										componentName: result.fullName,
-										lastModifiedByName: result.lastModifiedByName || 'Unknown',
-										lastModifiedDate: result.lastModifiedDate || result.lastModifiedDate
-									});
-								});
-								
-								console.log(`Found ${filteredResults.length} ${metadataType} components for user`);
-								completedQueries++;
-								if (completedQueries === totalQueries) {
-									sendResponse();
+								for (const component of resultsArray) {
+									if (component.lastModifiedById) {
+										hasFilterableData = true;
+										// We have enrichment data, so we can filter by user
+										if (component.lastModifiedById === userId) {
+											userComponents.push({
+												id: `${metadataType}.${component.fullName}`,
+												metadataType: metadataType,
+												componentName: component.fullName,
+												lastModifiedByName: component.lastModifiedByName || 'Unknown',
+												lastModifiedDate: component.lastModifiedDate
+											});
+										}
+									}
 								}
+								
+								// If we don't have filterable data, send ALL components
+								if (!hasFilterableData && resultsArray.length > 0) {
+									console.log(`No enrichment data for ${metadataType}, sending all ${resultsArray.length} components`);
+									for (const component of resultsArray) {
+										userComponents.push({
+											id: `${metadataType}.${component.fullName}`,
+											metadataType: metadataType,
+											componentName: component.fullName,
+											lastModifiedByName: 'N/A',
+											lastModifiedDate: component.lastModifiedDate || 'N/A'
+										});
+									}
+								}
+								
+								// Send components to UI and save to cache progressively (per metadata type)
+								if (userComponents.length > 0) {
+									// Add to cache accumulator (for final total display)
+									this._currentMyComponentsCache.push(...userComponents);
+									
+									// Save THIS metadata type to cache
+									const cacheByType = this._context.workspaceState.get<{[key: string]: any[]}>(CodingPanel.MY_COMPONENTS_CACHE_KEY, {});
+									cacheByType[metadataType] = userComponents;
+									await this._context.workspaceState.update(CodingPanel.MY_COMPONENTS_CACHE_KEY, cacheByType);
+									console.log(`Cached ${userComponents.length} components for ${metadataType}`);
+									
+									this._panel.webview.postMessage({ 
+										command: 'myComponentsProgress', 
+										components: userComponents,
+										processedCount: processedCount + 1,
+										totalTypes: totalTypes
+									});
+									
+									console.log(`Sent ${userComponents.length} ${metadataType} components to UI`);
+								}
+								
+								resolve();
 							}).catch(err => {
 								console.error(`Error enriching ${metadataType}:`, err);
-								completedQueries++;
-								if (completedQueries === totalQueries) {
-									sendResponse();
-								}
+								resolve();
 							});
 						} else {
-							completedQueries++;
-							if (completedQueries === totalQueries) {
-								sendResponse();
-							}
+							resolve();
 						}
 					} catch (err) {
 						console.error(`Error parsing ${metadataType} list:`, err);
-						completedQueries++;
-						if (completedQueries === totalQueries) {
-							sendResponse();
-						}
+						resolve();
 					}
 				} else {
-					completedQueries++;
-					if (completedQueries === totalQueries) {
-						sendResponse();
-					}
+					resolve();
 				}
 			});
 		});
+	}
 
-		// Special handling for CustomField (query from Tooling API)
-		// Query includes NamespacePrefix and ManageableState to determine if it's custom or standard
-		const customFieldQuery = `SELECT DeveloperName, NamespacePrefix, ManageableState, TableEnumOrId, EntityDefinition.QualifiedApiName, LastModifiedById, LastModifiedBy.Name, LastModifiedDate FROM CustomField WHERE LastModifiedById = '${userId}' ORDER BY LastModifiedDate DESC`;
-		const customFieldCmd = `sf data query --query "${customFieldQuery.replace(/"/g, '\\"')}" --use-tooling-api --json`;
-		
-		console.log('Querying CustomField via Tooling API');
-		
-		let customFieldProc: child.ChildProcess = child.exec(customFieldCmd, {
-			maxBuffer: 1024 * 1024 * 8,
-			cwd: vscode.workspace.workspaceFolders[0].uri.fsPath
-		});
+	private processCustomFieldForUser(userId: string, processedCount: number, totalTypes: number, progress: any): Promise<void> {
+		return new Promise((resolve) => {
+			progress.report({ 
+				increment: (1 / totalTypes) * 100,
+				message: `Processing CustomField... (${processedCount + 1}/${totalTypes})`
+			});
 
-		let customFieldBuffer = '';
+			const customFieldQuery = `SELECT DeveloperName, NamespacePrefix, ManageableState, TableEnumOrId, EntityDefinition.QualifiedApiName, LastModifiedById, LastModifiedBy.Name, LastModifiedDate FROM CustomField WHERE LastModifiedById = '${userId}' ORDER BY LastModifiedDate DESC`;
+			const customFieldCmd = `sf data query --query "${customFieldQuery.replace(/"/g, '\\"')}" --use-tooling-api --json`;
+			
+			console.log('Querying CustomField via Tooling API');
+			
+			let customFieldProc: child.ChildProcess = child.exec(customFieldCmd, {
+				maxBuffer: 1024 * 1024 * 8,
+				cwd: vscode.workspace.workspaceFolders[0].uri.fsPath
+			});
 
-		customFieldProc.stdout.on("data", (dataArg: any) => {
-			customFieldBuffer += dataArg;
-		});
+			let customFieldBuffer = '';
 
-		customFieldProc.stderr.on("data", (data: any) => {
-			console.log(`stderr for CustomField: ` + data);
-		});
+			customFieldProc.stdout.on("data", (dataArg: any) => {
+				customFieldBuffer += dataArg;
+			});
 
-		customFieldProc.on('exit', (code) => {
-			completedQueries++;
-			if (code === 0 && customFieldBuffer) {
-				try {
-					const queryData = JSON.parse(customFieldBuffer);
-					if (queryData.status === 0 && queryData.result && queryData.result.records) {
-						queryData.result.records.forEach((record: any) => {
-							const lastModifiedByName = record.LastModifiedBy ? record.LastModifiedBy.Name : 'Unknown';
-							// Use EntityDefinition.QualifiedApiName for the object API name, fallback to TableEnumOrId if not available
-							const objectName = (record.EntityDefinition && record.EntityDefinition.QualifiedApiName) ? record.EntityDefinition.QualifiedApiName : record.TableEnumOrId || 'Unknown';
-							
-							// Build the field API name
-							let fieldName = record.DeveloperName || 'Unknown';
-							
-							// Add namespace prefix if exists
-							if (record.NamespacePrefix) {
-								fieldName = `${record.NamespacePrefix}__${fieldName}`;
+			customFieldProc.stderr.on("data", (data: any) => {
+				console.log(`stderr for CustomField: ` + data);
+			});
+
+			customFieldProc.on('exit', (code) => {
+				if (code === 0 && customFieldBuffer) {
+					try {
+						const queryData = JSON.parse(customFieldBuffer);
+						if (queryData.status === 0 && queryData.result && queryData.result.records) {
+							const components = queryData.result.records.map((record: any) => {
+								const lastModifiedByName = record.LastModifiedBy ? record.LastModifiedBy.Name : 'Unknown';
+								const objectName = (record.EntityDefinition && record.EntityDefinition.QualifiedApiName) ? record.EntityDefinition.QualifiedApiName : record.TableEnumOrId || 'Unknown';
+								
+								let fieldName = record.DeveloperName || 'Unknown';
+								
+								if (record.NamespacePrefix) {
+									fieldName = `${record.NamespacePrefix}__${fieldName}`;
+								}
+								
+								if (record.ManageableState || !fieldName.includes('__')) {
+									fieldName = `${fieldName}__c`;
+								}
+								
+								return {
+									id: `CustomField.${objectName}.${fieldName}`,
+									metadataType: 'CustomField',
+									componentName: `${objectName}.${fieldName}`,
+									lastModifiedByName: lastModifiedByName,
+									lastModifiedDate: record.LastModifiedDate
+								};
+							});
+
+							if (components.length > 0) {
+								this._panel.webview.postMessage({ 
+									command: 'myComponentsProgress', 
+									components: components,
+									processedCount: processedCount + 1,
+									totalTypes: totalTypes
+								});
+								console.log(`Found ${components.length} CustomField components`);
 							}
-							
-							// Add __c suffix if it's a custom field (ManageableState exists or no standard indicator)
-							// Standard fields typically don't have ManageableState or it's null
-							if (record.ManageableState || !fieldName.includes('__')) {
-								fieldName = `${fieldName}__c`;
+						}
+					} catch (err) {
+						console.error('Error parsing CustomField query:', err);
+					}
+				}
+				resolve();
+			});
+		});
+	}
+
+	private processValidationRuleForUser(userId: string, processedCount: number, totalTypes: number, progress: any): Promise<void> {
+		return new Promise((resolve) => {
+			progress.report({ 
+				increment: (1 / totalTypes) * 100,
+				message: `Processing ValidationRule... (${processedCount + 1}/${totalTypes})`
+			});
+
+			const validationRuleQuery = `SELECT ValidationName, EntityDefinition.QualifiedApiName, LastModifiedById, LastModifiedBy.Name, LastModifiedDate FROM ValidationRule WHERE LastModifiedById = '${userId}' ORDER BY LastModifiedDate DESC`;
+			const validationRuleCmd = `sf data query --query "${validationRuleQuery.replace(/"/g, '\\"')}" --use-tooling-api --json`;
+			
+			console.log('Querying ValidationRule via Tooling API');
+			
+			let validationRuleProc: child.ChildProcess = child.exec(validationRuleCmd, {
+				maxBuffer: 1024 * 1024 * 8,
+				cwd: vscode.workspace.workspaceFolders[0].uri.fsPath
+			});
+
+			let validationRuleBuffer = '';
+
+			validationRuleProc.stdout.on("data", (dataArg: any) => {
+				validationRuleBuffer += dataArg;
+			});
+
+			validationRuleProc.stderr.on("data", (data: any) => {
+				console.log(`stderr for ValidationRule: ` + data);
+			});
+
+			validationRuleProc.on('exit', (code) => {
+				if (code === 0 && validationRuleBuffer) {
+					try {
+						const queryData = JSON.parse(validationRuleBuffer);
+						if (queryData.status === 0 && queryData.result && queryData.result.records) {
+							const components = queryData.result.records.map((record: any) => {
+								const lastModifiedByName = record.LastModifiedBy ? record.LastModifiedBy.Name : 'Unknown';
+								const objectName = record.EntityDefinition ? record.EntityDefinition.QualifiedApiName : 'Unknown';
+								return {
+									id: `ValidationRule.${objectName}.${record.ValidationName}`,
+									metadataType: 'ValidationRule',
+									componentName: `${objectName}.${record.ValidationName}`,
+									lastModifiedByName: lastModifiedByName,
+									lastModifiedDate: record.LastModifiedDate
+								};
+							});
+
+							if (components.length > 0) {
+								this._panel.webview.postMessage({ 
+									command: 'myComponentsProgress', 
+									components: components,
+									processedCount: processedCount + 1,
+									totalTypes: totalTypes
+								});
+								console.log(`Found ${components.length} ValidationRule components`);
 							}
-							
-							allComponents.push({
-								id: `CustomField.${objectName}.${fieldName}`,
-								metadataType: 'CustomField',
-								componentName: `${objectName}.${fieldName}`,
-								lastModifiedByName: lastModifiedByName,
-								lastModifiedDate: record.LastModifiedDate
-							});
-						});
-						console.log(`Found ${queryData.result.records.length} CustomField components`);
+						}
+					} catch (err) {
+						console.error('Error parsing ValidationRule query:', err);
 					}
-				} catch (err) {
-					console.error('Error parsing CustomField query:', err);
 				}
-			}
-			if (completedQueries === totalQueries) {
-				sendResponse();
-			}
+				resolve();
+			});
 		});
+	}
 
-		// Special handling for ValidationRule (query from Tooling API)
-		const validationRuleQuery = `SELECT ValidationName, EntityDefinition.QualifiedApiName, LastModifiedById, LastModifiedBy.Name, LastModifiedDate FROM ValidationRule WHERE LastModifiedById = '${userId}' ORDER BY LastModifiedDate DESC`;
-		const validationRuleCmd = `sf data query --query "${validationRuleQuery.replace(/"/g, '\\"')}" --use-tooling-api --json`;
-		
-		console.log('Querying ValidationRule via Tooling API');
-		
-		let validationRuleProc: child.ChildProcess = child.exec(validationRuleCmd, {
-			maxBuffer: 1024 * 1024 * 8,
-			cwd: vscode.workspace.workspaceFolders[0].uri.fsPath
-		});
+	private processWorkflowRuleForUser(userId: string, processedCount: number, totalTypes: number, progress: any): Promise<void> {
+		return new Promise((resolve) => {
+			progress.report({ 
+				increment: (1 / totalTypes) * 100,
+				message: `Processing WorkflowRule... (${processedCount + 1}/${totalTypes})`
+			});
 
-		let validationRuleBuffer = '';
+			const workflowRuleQuery = `SELECT Name, TableEnumOrId, LastModifiedById, LastModifiedBy.Name, LastModifiedDate FROM WorkflowRule WHERE LastModifiedById = '${userId}' ORDER BY LastModifiedDate DESC`;
+			const workflowRuleCmd = `sf data query --query "${workflowRuleQuery.replace(/"/g, '\\"')}" --use-tooling-api --json`;
+			
+			console.log('Querying WorkflowRule via Tooling API');
+			
+			let workflowRuleProc: child.ChildProcess = child.exec(workflowRuleCmd, {
+				maxBuffer: 1024 * 1024 * 8,
+				cwd: vscode.workspace.workspaceFolders[0].uri.fsPath
+			});
 
-		validationRuleProc.stdout.on("data", (dataArg: any) => {
-			validationRuleBuffer += dataArg;
-		});
+			let workflowRuleBuffer = '';
 
-		validationRuleProc.stderr.on("data", (data: any) => {
-			console.log(`stderr for ValidationRule: ` + data);
-		});
+			workflowRuleProc.stdout.on("data", (dataArg: any) => {
+				workflowRuleBuffer += dataArg;
+			});
 
-		validationRuleProc.on('exit', (code) => {
-			completedQueries++;
-			if (code === 0 && validationRuleBuffer) {
-				try {
-					const queryData = JSON.parse(validationRuleBuffer);
-					if (queryData.status === 0 && queryData.result && queryData.result.records) {
-						queryData.result.records.forEach((record: any) => {
-							const lastModifiedByName = record.LastModifiedBy ? record.LastModifiedBy.Name : 'Unknown';
-							const objectName = record.EntityDefinition ? record.EntityDefinition.QualifiedApiName : 'Unknown';
-							allComponents.push({
-								id: `ValidationRule.${objectName}.${record.ValidationName}`,
-								metadataType: 'ValidationRule',
-								componentName: `${objectName}.${record.ValidationName}`,
-								lastModifiedByName: lastModifiedByName,
-								lastModifiedDate: record.LastModifiedDate
+			workflowRuleProc.stderr.on("data", (data: any) => {
+				console.log(`stderr for WorkflowRule: ` + data);
+			});
+
+			workflowRuleProc.on('exit', (code) => {
+				if (code === 0 && workflowRuleBuffer) {
+					try {
+						const queryData = JSON.parse(workflowRuleBuffer);
+						if (queryData.status === 0 && queryData.result && queryData.result.records) {
+							const components = queryData.result.records.map((record: any) => {
+								const lastModifiedByName = record.LastModifiedBy ? record.LastModifiedBy.Name : 'Unknown';
+								return {
+									id: `WorkflowRule.${record.Name}`,
+									metadataType: 'WorkflowRule',
+									componentName: record.Name,
+									lastModifiedByName: lastModifiedByName,
+									lastModifiedDate: record.LastModifiedDate
+								};
 							});
-						});
-						console.log(`Found ${queryData.result.records.length} ValidationRule components`);
+
+							if (components.length > 0) {
+								this._panel.webview.postMessage({ 
+									command: 'myComponentsProgress', 
+									components: components,
+									processedCount: processedCount + 1,
+									totalTypes: totalTypes
+								});
+								console.log(`Found ${components.length} WorkflowRule components`);
+							}
+						}
+					} catch (err) {
+						console.error('Error parsing WorkflowRule query:', err);
 					}
-				} catch (err) {
-					console.error('Error parsing ValidationRule query:', err);
 				}
-			}
-			if (completedQueries === totalQueries) {
-				sendResponse();
-			}
+				resolve();
+			});
 		});
-
-		// Special handling for WorkflowRule (query from Tooling API)
-		const workflowRuleQuery = `SELECT Name, TableEnumOrId, LastModifiedById, LastModifiedBy.Name, LastModifiedDate FROM WorkflowRule WHERE LastModifiedById = '${userId}' ORDER BY LastModifiedDate DESC`;
-		const workflowRuleCmd = `sf data query --query "${workflowRuleQuery.replace(/"/g, '\\"')}" --use-tooling-api --json`;
-		
-		console.log('Querying WorkflowRule via Tooling API');
-		
-		let workflowRuleProc: child.ChildProcess = child.exec(workflowRuleCmd, {
-			maxBuffer: 1024 * 1024 * 8,
-			cwd: vscode.workspace.workspaceFolders[0].uri.fsPath
-		});
-
-		let workflowRuleBuffer = '';
-
-		workflowRuleProc.stdout.on("data", (dataArg: any) => {
-			workflowRuleBuffer += dataArg;
-		});
-
-		workflowRuleProc.stderr.on("data", (data: any) => {
-			console.log(`stderr for WorkflowRule: ` + data);
-		});
-
-		workflowRuleProc.on('exit', (code) => {
-			completedQueries++;
-			if (code === 0 && workflowRuleBuffer) {
-				try {
-					const queryData = JSON.parse(workflowRuleBuffer);
-					if (queryData.status === 0 && queryData.result && queryData.result.records) {
-						queryData.result.records.forEach((record: any) => {
-							const lastModifiedByName = record.LastModifiedBy ? record.LastModifiedBy.Name : 'Unknown';
-							allComponents.push({
-								id: `WorkflowRule.${record.Name}`,
-								metadataType: 'WorkflowRule',
-								componentName: record.Name,
-								lastModifiedByName: lastModifiedByName,
-								lastModifiedDate: record.LastModifiedDate
-							});
-						});
-						console.log(`Found ${queryData.result.records.length} WorkflowRule components`);
-					}
-				} catch (err) {
-					console.error('Error parsing WorkflowRule query:', err);
-				}
-			}
-			if (completedQueries === totalQueries) {
-				sendResponse();
-			}
-		});
-		}); // Close describeExec.on('exit') block
 	}
 
 	private buildPackageFromMyComponents(components: any[]) {
